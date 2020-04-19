@@ -1,6 +1,5 @@
-import constants from './constants.json';
 import {
-    Vector2, Vector3, CanvasTexture,
+    Vector2, CanvasTexture,
     LinearMipmapLinearFilter, NearestFilter,
     BoxGeometry, PlaneGeometry, AxesHelper,
     SpriteMaterial, MeshBasicMaterial,
@@ -58,7 +57,7 @@ export default class MeshFactory {
         return sprite;
     }
 
-    static createCube(size, position) {
+    static createCube(size, position, color = 0x00ffff) {
         const geometry = new BoxGeometry(
             size[0],
             size[1],
@@ -66,8 +65,8 @@ export default class MeshFactory {
         );
 
         const material = new MeshBasicMaterial({
-            color: parseInt(constants.palette.blue)
-            });
+            color: color
+        });
 
         const mesh = new Mesh(geometry, material);
         mesh.position.x = position[0];
@@ -76,14 +75,14 @@ export default class MeshFactory {
         return mesh;
     }
 
-    static createTile(size = new Vector2(1, 1)) {
+    static createTile(size = new Vector2(1, 1), color = 0xff00ff) {
         const geometry = new PlaneGeometry(
-            size.x * constants.scale,
-            size.y * constants.scale,
+            size.x,
+            size.y,
             1, 1);
 
         const material = new MeshBasicMaterial({
-            color: parseInt(constants.palette.lime)
+            color: color
         });
 
         const mesh = new Mesh(geometry, material);
@@ -95,19 +94,19 @@ export default class MeshFactory {
 
     static createAxes() {
         const group = new Group();
-        const axes = new AxesHelper(constants.scale);
+        const axes = new AxesHelper(1);
         group.add(axes);
 
         const tx = MeshFactory.createText('x');
-        tx.position.x = constants.scale;
+        tx.position.x = 1;
         group.add(tx);
 
         const ty = MeshFactory.createText('y');
-        ty.position.y = constants.scale;
+        ty.position.y = 1;
         group.add(ty);
 
         const tz = MeshFactory.createText('z');
-        tz.position.z = constants.scale;
+        tz.position.z = 1;
         group.add(tz);
 
         return group;

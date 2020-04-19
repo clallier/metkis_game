@@ -1,33 +1,5 @@
 'use strict';
 
-var scale = 1;
-var palette = {
-	blue: "0x88ebff",
-	lime: "0xe9ff88"
-};
-var level = {
-	name: "level1",
-	data: [
-		"111111111",
-		"100000001",
-		"100110001",
-		"100011001",
-		"100000001",
-		"111000111",
-		"110000001",
-		"100000001",
-		"100111001",
-		"100001001",
-		"100000001",
-		"111111111"
-	]
-};
-var constants = {
-	scale: scale,
-	palette: palette,
-	level: level
-};
-
 class MiniConsole {
     constructor() {
         this.minsize = '1rem';
@@ -50546,19 +50518,24 @@ class ThreeScene {
         this.canvas = document.querySelector('#canvas');
         const context = this.canvas.getContext('webgl2', { alpha: true });
         this.renderer = new WebGLRenderer({ canvas: this.canvas, context });
+        this.renderer.shadowMap.enabled = true;
 
         this.camera = new PerspectiveCamera(75, 2, 0.1, 1000);
         this.camera.position.y = 8;
         this.camera.position.z = -8;
 
         this.control = new OrbitControls(this.camera, this.canvas);
+        this.control.enabled = false;
         this.scene = new Scene();
 
         this.lights = [];
-        const light = new HemisphereLight(0xffffff, 0xffffff, 0.6);
-        light.color.setHSL(0.8, 1, 1);
-        light.groundColor.setHSL(1, 1, 0.8);
+        const light = new SpotLight(0xffffff, 1);
+        // const light = new HemisphereLight(0xffffff, 0xffffff, 0.6);
+        // light.color.setHSL(0.8, 1, 1);
+        // light.groundColor.setHSL(1, 1, 0.8);
         light.position.set(0, 50, 0);
+        light.castShadow = true;
+
         this.lights.push(light);
         this.scene.add(this.lights[0]);
     }
@@ -50632,7 +50609,7 @@ class MeshFactory {
         return sprite;
     }
 
-    static createCube(size, position) {
+    static createCube(size, position, color = 0x00ffff) {
         const geometry = new BoxGeometry(
             size[0],
             size[1],
@@ -50640,8 +50617,8 @@ class MeshFactory {
         );
 
         const material = new MeshBasicMaterial({
-            color: parseInt(constants.palette.blue)
-            });
+            color: color
+        });
 
         const mesh = new Mesh(geometry, material);
         mesh.position.x = position[0];
@@ -50650,14 +50627,14 @@ class MeshFactory {
         return mesh;
     }
 
-    static createTile(size = new Vector2(1, 1)) {
+    static createTile(size = new Vector2(1, 1), color = 0xff00ff) {
         const geometry = new PlaneGeometry(
-            size.x * constants.scale,
-            size.y * constants.scale,
+            size.x,
+            size.y,
             1, 1);
 
         const material = new MeshBasicMaterial({
-            color: parseInt(constants.palette.lime)
+            color: color
         });
 
         const mesh = new Mesh(geometry, material);
@@ -50669,52 +50646,24 @@ class MeshFactory {
 
     static createAxes() {
         const group = new Group();
-        const axes = new AxesHelper(constants.scale);
+        const axes = new AxesHelper(1);
         group.add(axes);
 
         const tx = MeshFactory.createText('x');
-        tx.position.x = constants.scale;
+        tx.position.x = 1;
         group.add(tx);
 
         const ty = MeshFactory.createText('y');
-        ty.position.y = constants.scale;
+        ty.position.y = 1;
         group.add(ty);
 
         const tz = MeshFactory.createText('z');
-        tz.position.z = constants.scale;
+        tz.position.z = 1;
         group.add(tz);
 
         return group;
     }
 
-}
-
-class Block {
-    constructor (size, position, spriteSheet) {
-        const geometry = new BoxGeometry(
-            size[0], 
-            size[1], 
-            size[2]
-        );
-    
-        const x = ~~(Math.random() * 6) + 2;
-        const y = ~~(Math.random() * 2) + 10;
-        const ctx = spriteSheet.getTile(x, y);
-
-        const texture = new Texture(ctx.canvas);
-        texture.minFilter = LinearMipmapLinearFilter;
-        texture.magFilter = NearestFilter;
-        texture.needsUpdate = true;
-    
-        const material = new MeshBasicMaterial({
-            map: texture
-        });
-        const mesh = new Mesh(geometry, material);
-        mesh.position.x = position[0];
-        mesh.position.y = position[1];
-        mesh.position.z = position[2];
-        return mesh;
-    }    
 }
 
 class SpriteSheet {
@@ -50746,7 +50695,7 @@ class SpriteSheet {
         ctx.drawImage(this.spritesheet, 
             x, y, this.tile_w, this.tile_h, 
             0, 0, this.tile_w, this.tile_h);
-        return ctx;
+        return ctx.canvas;
     }
 
     getRandomTile() {
@@ -50756,10 +50705,337 @@ class SpriteSheet {
     }
 }
 
+class TouchController {
+    constructor(color = 0x00ffff) {
+        this.state = {
+            dir: new Vector2(),
+            // action btn
+            action: false
+        };
+
+        this.keys = {
+            left: 37,
+            right: 39,
+            up: 38,
+            down: 40,
+            space: 32
+        };
+
+        this.canvas = document.createElement('canvas');
+
+        this.width = window.innerWidth;
+        this.height = window.innerHeight;
+        
+        // TODO resize 
+        this.canvas.width = this.width;
+        this.canvas.height = this.height;
+        this.canvas.style.width = this.width + 'px';
+        this.canvas.style.height = this.height + 'px';
+        this.canvas.style.position = 'absolute';
+        this.canvas.style.zIndex = 2;
+
+        document.body.appendChild(this.canvas);
+        this.ctx = this.canvas.getContext('2d');
+
+
+        this.r = Math.max(this.width / 20, 50);
+        this.color = color;
+
+        this.show = true;
+        let v0 = new Vector2(this.r * 2, this.height - this.r * 2);
+        let v1 = new Vector2(this.width - this.r * 2, this.height - this.r * 2);
+        this.leftTouchID = 0; // -1
+        this.rightTouchID = 0; // -1
+        this.leftTouchPos = v0.clone();
+        this.leftTouchStartPos = v0.clone();
+        this.rightTouchPos = v1.clone();
+
+
+        window.addEventListener('touchstart', (e) => this.touchStart(e));
+        window.addEventListener('touchend', (e) => this.touchEnd(e));
+        window.addEventListener('touchmove', (e) => this.touchMove(e));
+
+        window.addEventListener('keydown', (e) => this.keyDownListener(e), true);
+        window.addEventListener('keyup', (e) => this.keyUpListener(e), true);
+    }
+
+    touchStart(event) {
+        if (this.show === true) {
+            this.show = false;
+            this.leftTouchId = -1;
+            this.rightTouchId = -1;
+        }
+
+        this.show = true;
+        for (let i = 0; i < event.changedTouches.length; i += 1) {
+            const t = event.changedTouches[i];
+
+            if (this.leftTouchId < 0 && t.clientX < this.width / 2) {
+                this.leftTouchId = t.identifier;
+                this.leftTouchStartPos.x = this.leftTouchPos.x = t.clientX;
+                this.leftTouchStartPos.y = this.leftTouchPos.y = t.clientY;
+                this.state.dir.x = this.state.dir.y = 0;
+                continue;
+            } else if (this.rightTouchId < 0) {
+                this.rightTouchId = t.identifier;
+                this.rightTouchPos.x = t.clientX;
+                this.rightTouchPos.y = t.clientY;
+                this.state.action = true;
+                continue;
+            }
+        }
+    }
+
+
+    touchMove(event) {
+        for (let i = 0; i < event.changedTouches.length; i += 1) {
+            const t = event.changedTouches[i];
+            if (this.leftTouchId === t.identifier) {
+                this.state.dir.x = (t.clientX - this.leftTouchStartPos.x) / this.r;
+                this.state.dir.y = (t.clientY - this.leftTouchStartPos.y) / this.r;
+                this.state.dir.clampLength(0, 1);
+                this.leftTouchPos.x = this.leftTouchStartPos.x + this.state.dir.x * this.r;
+                this.leftTouchPos.y = this.leftTouchStartPos.y + this.state.dir.y * this.r;
+                continue;
+            } else if (this.rightTouchId === t.identifier) {
+                this.rightTouchPos.x = t.clientX;
+                this.rightTouchPos.y = t.clientY;
+                this.state.action = true;
+                continue;
+            }
+        }
+    }
+
+    touchEnd(event) {
+        this.show = false;
+        for (let i = 0; i < event.changedTouches.length; i += 1) {
+            const t = event.changedTouches[i];
+
+            if (this.leftTouchId === t.identifier) {
+                this.leftTouchId = -1;
+                this.state.dir.x = 0;
+                this.state.dir.y = 0;
+                break;
+            }
+            if (this.rightTouchId === t.identifier) {
+                this.rightTouchId = -1;
+                this.state.action = false;
+                break;
+            }
+        }
+    }
+
+    keyDownListener(event) {
+        this.show = false;
+        if (event.defaultPrevented) {
+            return; // Should do nothing if the key event was already consumed.
+        }
+        if (event.keyCode === this.keys.up) {
+            this.state.dir.y = -1;
+        }
+        if (event.keyCode === this.keys.down) {
+            this.state.dir.y = 1;
+        }
+        if (event.keyCode === this.keys.left) {
+            this.state.dir.x = -1;
+        }
+        if (event.keyCode === this.keys.right) {
+            this.state.dir.x = 1;
+        }
+        if (event.keyCode === this.keys.space) {
+            this.state.action = true;
+        }
+        event.preventDefault();
+    }
+
+    keyUpListener(event) {
+        if (event.defaultPrevented) {
+            return; // Should do nothing if the key event was already consumed.
+        }
+        if (event.keyCode === this.keys.up || event.keyCode === this.keys.down) {
+            this.state.dir.y = 0;
+        }
+        if (event.keyCode === this.keys.left || event.keyCode === this.keys.right) {
+            this.state.dir.x = 0;
+        }
+        if (event.keyCode === this.keys.space) {
+            this.state.action = false;
+        }
+        event.preventDefault();
+    }
+
+    display () {
+        this.ctx.clearRect(0, 0, this.width, this.height);
+        if(this.show == false) return;
+        
+        const PI2 = 2 * Math.PI;
+        if (this.leftTouchID > -1) {
+            this.ctx.strokeStyle = this.color;
+            this.ctx.lineWidth = 2;
+            this.ctx.beginPath();
+            this.ctx.arc(this.leftTouchStartPos.x, this.leftTouchStartPos.y, this.r, 0, PI2);
+            this.ctx.stroke();
+            this.ctx.closePath();
+
+            this.ctx.beginPath();
+            this.ctx.arc(this.leftTouchStartPos.x, this.leftTouchStartPos.y, this.r * 1.1, 0, PI2);
+            this.ctx.stroke();
+            this.ctx.closePath();
+
+            this.ctx.strokeStyle = '#ddd';
+            this.ctx.lineWidth = 4;
+            this.ctx.beginPath();
+            this.ctx.arc(this.leftTouchPos.x, this.leftTouchPos.y, this.r * 0.9, 0, PI2);
+            this.ctx.stroke();
+            this.ctx.closePath();
+        }
+
+        if (this.rightTouchID > -1) {
+            this.ctx.strokeStyle = this.color;
+            this.ctx.fillStyle = '#ddd';
+            this.ctx.beginPath();
+            this.ctx.arc(this.rightTouchPos.x, this.rightTouchPos.y, this.r * 0.9, 0, PI2);
+            this.ctx.stroke();
+            this.ctx.closePath();
+        }
+    }
+}
+
+var colors = {
+	blue: "0x88ebff",
+	lime: "0xe9ff88"
+};
+var level = {
+	name: "level1",
+	data: [
+		"111111111",
+		"100000021",
+		"100110001",
+		"100011001",
+		"100000001",
+		"111000111",
+		"110000001",
+		"100000001",
+		"100111001",
+		"100031001",
+		"100000001",
+		"111111111"
+	]
+};
+var constants = {
+	colors: colors,
+	level: level
+};
+
+class Block {
+    constructor(size, position, spriteSheet) {
+        const geometry = new BoxGeometry(
+            size[0],
+            size[1],
+            size[2]
+        );
+
+        const x = ~~(Math.random() * 6) + 2;
+        const y = ~~(Math.random() * 2) + 10;
+        const tile = spriteSheet.getTile(x, y);
+
+        const texture = new Texture(tile);
+        texture.minFilter = LinearMipmapLinearFilter;
+        texture.magFilter = NearestFilter;
+        texture.needsUpdate = true;
+
+        const material = new MeshBasicMaterial({
+            map: texture
+        });
+        const mesh = new Mesh(geometry, material);
+        mesh.position.x = position[0];
+        mesh.position.y = position[1];
+        mesh.position.z = position[2];
+        return mesh;
+    }
+}
+
+class Tile {
+    constructor(size, position, spriteSheet) {
+        const geometry = new PlaneGeometry(
+            size[0],
+            size[1], 
+            1, 1
+        );
+
+        const x = ~~(Math.random() * 2) + 4;
+        const y = 14;
+        const tile = spriteSheet.getTile(x, y);
+
+        const texture = new Texture(tile);
+        texture.minFilter = LinearMipmapLinearFilter;
+        texture.magFilter = NearestFilter;
+        texture.needsUpdate = true;
+
+        const material = new MeshBasicMaterial({
+            map: texture
+        });
+        const mesh = new Mesh(geometry, material);
+        mesh.position.x = position[0];
+        mesh.position.y = position[1] - 0.5;
+        mesh.position.z = position[2];
+        mesh.rotation.x = -Math.PI / 2;
+
+        return mesh;
+    }
+}
+
+class Item {
+    constructor(size, position, spriteSheet) {
+
+        const tile = spriteSheet.getTile(0, 9);
+
+        const texture = new CanvasTexture(tile);
+        texture.minFilter = LinearMipmapLinearFilter;
+        texture.magFilter = NearestFilter;
+        texture.needsUpdate = true;
+
+        const material = new SpriteMaterial({ map: texture });
+        const mesh = new Sprite(material);
+        mesh.scale.set(0.8 * size[0], 0.8 * size[1], 1);
+        mesh.position.x = position[0];
+        mesh.position.y = position[1];
+        mesh.position.z = position[2];
+
+        return mesh;
+    }
+}
+
+class Hero {
+    constructor(size, position, spriteSheet) {
+
+        const tile = spriteSheet.getTile(0, 8);
+
+        const texture = new CanvasTexture(tile);
+        texture.minFilter = LinearMipmapLinearFilter;
+        texture.magFilter = NearestFilter;
+        texture.needsUpdate = true;
+
+        const material = new SpriteMaterial({ map: texture });
+        
+        const mesh = new Sprite(material);
+        mesh.scale.set(0.8 * size[0], 0.8 * size[1], 1);
+        mesh.position.x = position[0];
+        mesh.position.y = position[1];
+        mesh.position.z = position[2];
+
+        return mesh;
+    }
+}
+
 class App {
     constructor() {
         new MiniConsole();
+        this.lastTime = 0;
         this.ts = new ThreeScene();
+        this.controller = new TouchController(
+            parseInt(constants.colors.blue)
+        );
 
         window.addEventListener('resize', () => this.resize(), false);
         this.resize();
@@ -50768,34 +51044,45 @@ class App {
         this.ts.scene.add(axes);
 
         const text = MeshFactory.createText("READY TO 🍪?!");
-        text.position.y = 2 * constants.scale;
+        text.position.y = 2;
         this.ts.scene.add(text);
-
     }
 
     async start() {
         const spriteSheet = new SpriteSheet('resources/textures/raw_tileset01.png', 8, 15, 8, 8);
         await spriteSheet.load();
-        
-        const scale = constants.scale;
+
         const data = constants.level.data;
         const rows = data.length;
         const cols = data[0].length;
 
-        const x_offset = (cols / 2) * scale;
-        const z_offset = (rows / 2) * scale;
-        console.log(x_offset, z_offset);
-        for(let l=0; l<rows; l++){
-            for(let r=0; r<cols; r++){
+        const x_offset = (cols / 2);
+        const z_offset = (rows / 2);
+        for (let l = 0; l < rows; l++) {
+            for (let r = 0; r < cols; r++) {
                 const c = data[l][r];
-                const size = [scale, scale, scale];
+                const size = [1, 1, 1];
                 const position = [
-                    -r * scale + x_offset, 
+                    -r + x_offset,
                     1,
-                    -l * scale + z_offset,
+                    -l + z_offset,
                 ];
-                if(c == 1) 
-                this.ts.scene.add(new Block(size, position, spriteSheet));
+
+                if (c == 0) {
+                    this.ts.scene.add(new Tile(size, position, spriteSheet));
+                }
+                else if (c == 1) {
+                    this.ts.scene.add(new Block(size, position, spriteSheet));
+                }
+                else if (c == 2) {
+                    this.ts.scene.add(new Tile(size, position, spriteSheet));
+                    this.ts.scene.add(new Item(size, position, spriteSheet));
+                }
+                else if (c == 3) {
+                    this.ts.scene.add(new Tile(size, position, spriteSheet));
+                    this.hero = new Hero(size, position, spriteSheet);
+                    this.ts.scene.add(this.hero);
+                }
             }
         }
 
@@ -50803,9 +51090,16 @@ class App {
     }
 
     update(t) {
-        const delta = (t - this.lastTime) * 0.001;
+        let delta = (t - this.lastTime) * 0.001;
+        delta = Math.min(delta, 0.1);
         this.lastTime = t;
         this.ts.render(delta);
+
+
+        this.hero.position.x -= (this.controller.state.dir.x * delta * 4);
+        this.hero.position.z -= (this.controller.state.dir.y * delta * 4);
+
+        this.controller.display();
         requestAnimationFrame((t) => this.update(t));
     }
 

@@ -27,7 +27,7 @@ export default class SpriteSheet {
         ctx.drawImage(this.spritesheet, 
             x, y, this.tile_w, this.tile_h, 
             0, 0, this.tile_w, this.tile_h);
-        return ctx;
+        return ctx.canvas;
     }
 
     getRandomTile() {
