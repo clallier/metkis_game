@@ -9,6 +9,8 @@ import Block from './game/block';
 import Tile from './game/tile';
 import Item from './game/item';
 import Hero from './game/hero';
+import EntityArray from './entityarray';
+import { Raycaster, Vector3 } from 'three';
 
 export default class App {
     constructor() {
@@ -18,11 +20,13 @@ export default class App {
         this.controller = new TouchController(
             parseInt(constants.colors.blue)
         );
+        this.entities = new EntityArray();
 
         window.addEventListener('resize', () => this.resize(), false);
         this.resize()
 
         const axes = MeshFactory.createAxes();
+        axes.position.y = 1;
         this.ts.scene.add(axes);
 
         const text = MeshFactory.createText("READY TO 🍪?!");
@@ -38,8 +42,8 @@ export default class App {
         const rows = data.length;
         const cols = data[0].length;
 
-        const x_offset = (cols / 2);
-        const z_offset = (rows / 2);
+        const x_offset = ~~(cols / 2);
+        const z_offset = ~~(rows / 2);
         for (let l = 0; l < rows; l++) {
             for (let r = 0; r < cols; r++) {
                 const c = data[l][r];
@@ -54,11 +58,14 @@ export default class App {
                     this.ts.scene.add(new Tile(size, position, spriteSheet))
                 }
                 else if (c == 1) {
-                    this.ts.scene.add(new Block(size, position, spriteSheet))
+                    const block = new Block(size, position, spriteSheet);
+                    this.entities.add(block)
+                    this.ts.scene.add(block);
                 }
                 else if (c == 2) {
                     this.ts.scene.add(new Tile(size, position, spriteSheet))
-                    this.ts.scene.add(new Item(size, position, spriteSheet))
+                    const item = new Item(size, position, spriteSheet);
+                    this.ts.scene.add(item);
                 }
                 else if (c == 3) {
                     this.ts.scene.add(new Tile(size, position, spriteSheet))
@@ -67,6 +74,7 @@ export default class App {
                 }
             }
         }
+        this.entities.mergeAddQueue();
 
         requestAnimationFrame((t) => this.update(t));
     }
@@ -77,10 +85,25 @@ export default class App {
         this.lastTime = t;
         this.ts.render(delta);
 
+        const dir = this.controller.state.dir;
+        const velocity = new Vector3(dir.x, 0, dir.y)
+            .multiplyScalar(-delta * 2);
 
-        this.hero.position.x -= (this.controller.state.dir.x * delta * 4);
-        this.hero.position.z -= (this.controller.state.dir.y * delta * 4);
+        const vel_norm = velocity.clone().normalize();
+        const length = velocity.length() + 0.5;
 
+        var ray = new Raycaster(this.hero.position, vel_norm);
+        var res = ray.intersectObjects(this.entities.array);
+        for (let i = 0; i < res.length; i++) {
+            const r = res[i];
+            if (r.distance < length) {
+                velocity.clampLength(0, 0);
+
+                console.log(velocity);
+            }
+        }
+        this.hero.position.x += velocity.x;
+        this.hero.position.z += velocity.z;
         this.controller.display();
         requestAnimationFrame((t) => this.update(t));
     }

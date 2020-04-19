@@ -50751,15 +50751,17 @@ class TouchController {
         this.rightTouchPos = v1.clone();
 
 
-        window.addEventListener('touchstart', (e) => this.touchStart(e));
-        window.addEventListener('touchend', (e) => this.touchEnd(e));
-        window.addEventListener('touchmove', (e) => this.touchMove(e));
+        this.canvas.addEventListener('touchstart', (e) => this.touchStart(e));
+        this.canvas.addEventListener('touchend', (e) => this.touchEnd(e));
+        this.canvas.addEventListener('touchmove', (e) => this.touchMove(e));
 
-        window.addEventListener('keydown', (e) => this.keyDownListener(e), true);
-        window.addEventListener('keyup', (e) => this.keyUpListener(e), true);
+        document.addEventListener('keydown', (e) => this.keyDownListener(e), true);
+        document.addEventListener('keyup', (e) => this.keyUpListener(e), true);
     }
 
     touchStart(event) {
+        event.preventDefault();
+
         if (this.show === true) {
             this.show = false;
             this.leftTouchId = -1;
@@ -50788,6 +50790,7 @@ class TouchController {
 
 
     touchMove(event) {
+        event.preventDefault();
         for (let i = 0; i < event.changedTouches.length; i += 1) {
             const t = event.changedTouches[i];
             if (this.leftTouchId === t.identifier) {
@@ -50807,6 +50810,7 @@ class TouchController {
     }
 
     touchEnd(event) {
+        event.preventDefault();
         this.show = false;
         for (let i = 0; i < event.changedTouches.length; i += 1) {
             const t = event.changedTouches[i];
@@ -50915,9 +50919,9 @@ var level = {
 		"100000001",
 		"111000111",
 		"110000001",
-		"100000001",
-		"100111001",
-		"100031001",
+		"100010001",
+		"100011001",
+		"103001001",
 		"100000001",
 		"111111111"
 	]
@@ -51028,6 +51032,45 @@ class Hero {
     }
 }
 
+class EntityArray {
+    constructor() {
+        this.array = [];
+        this.addQueue = [];
+        this.removeQueue = [];
+    }
+
+    add(element) {
+        this.addQueue.push(element);
+    }
+
+    remove(element) {
+        this.removeQueue.add(element);
+    }
+
+    forEach(fn) {
+        this.mergeAddQueue();
+
+        // TODO
+        // if (this.removeQueue.size) {
+        //     this.array = this.array.filter(element => !this.removeQueue.has(element));
+        //     this.removeQueue.clear();
+        // }
+
+
+        for (const element of this.array) {
+            // if (this.removeQueue.has(element)) {
+            //     continue;
+            // }
+            fn(element);
+        }
+    }
+
+    mergeAddQueue() {
+        this.array = this.array.concat(this.addQueue);
+        this.addQueue = [];
+    }
+}
+
 class App {
     constructor() {
         new MiniConsole();
@@ -51036,11 +51079,13 @@ class App {
         this.controller = new TouchController(
             parseInt(constants.colors.blue)
         );
+        this.entities = new EntityArray();
 
         window.addEventListener('resize', () => this.resize(), false);
         this.resize();
 
         const axes = MeshFactory.createAxes();
+        axes.position.y = 1;
         this.ts.scene.add(axes);
 
         const text = MeshFactory.createText("READY TO 🍪?!");
@@ -51056,8 +51101,8 @@ class App {
         const rows = data.length;
         const cols = data[0].length;
 
-        const x_offset = (cols / 2);
-        const z_offset = (rows / 2);
+        const x_offset = ~~(cols / 2);
+        const z_offset = ~~(rows / 2);
         for (let l = 0; l < rows; l++) {
             for (let r = 0; r < cols; r++) {
                 const c = data[l][r];
@@ -51072,11 +51117,14 @@ class App {
                     this.ts.scene.add(new Tile(size, position, spriteSheet));
                 }
                 else if (c == 1) {
-                    this.ts.scene.add(new Block(size, position, spriteSheet));
+                    const block = new Block(size, position, spriteSheet);
+                    this.entities.add(block);
+                    this.ts.scene.add(block);
                 }
                 else if (c == 2) {
                     this.ts.scene.add(new Tile(size, position, spriteSheet));
-                    this.ts.scene.add(new Item(size, position, spriteSheet));
+                    const item = new Item(size, position, spriteSheet);
+                    this.ts.scene.add(item);
                 }
                 else if (c == 3) {
                     this.ts.scene.add(new Tile(size, position, spriteSheet));
@@ -51085,6 +51133,7 @@ class App {
                 }
             }
         }
+        this.entities.mergeAddQueue();
 
         requestAnimationFrame((t) => this.update(t));
     }
@@ -51095,10 +51144,25 @@ class App {
         this.lastTime = t;
         this.ts.render(delta);
 
+        const dir = this.controller.state.dir;
+        const velocity = new Vector3(dir.x, 0, dir.y)
+            .multiplyScalar(-delta * 2);
 
-        this.hero.position.x -= (this.controller.state.dir.x * delta * 4);
-        this.hero.position.z -= (this.controller.state.dir.y * delta * 4);
+        const vel_norm = velocity.clone().normalize();
+        const length = velocity.length() + 0.5;
 
+        var ray = new Raycaster(this.hero.position, vel_norm);
+        var res = ray.intersectObjects(this.entities.array);
+        for (let i = 0; i < res.length; i++) {
+            const r = res[i];
+            if (r.distance < length) {
+                velocity.clampLength(0, 0);
+
+                console.log(velocity);
+            }
+        }
+        this.hero.position.x += velocity.x;
+        this.hero.position.z += velocity.z;
         this.controller.display();
         requestAnimationFrame((t) => this.update(t));
     }
