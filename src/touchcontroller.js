@@ -46,15 +46,17 @@ export default class TouchController {
         this.rightTouchPos = v1.clone();
 
 
-        window.addEventListener('touchstart', (e) => this.touchStart(e));
-        window.addEventListener('touchend', (e) => this.touchEnd(e));
-        window.addEventListener('touchmove', (e) => this.touchMove(e));
+        this.canvas.addEventListener('touchstart', (e) => this.touchStart(e));
+        this.canvas.addEventListener('touchend', (e) => this.touchEnd(e));
+        this.canvas.addEventListener('touchmove', (e) => this.touchMove(e));
 
-        window.addEventListener('keydown', (e) => this.keyDownListener(e), true);
-        window.addEventListener('keyup', (e) => this.keyUpListener(e), true);
+        document.addEventListener('keydown', (e) => this.keyDownListener(e), true);
+        document.addEventListener('keyup', (e) => this.keyUpListener(e), true);
     }
 
     touchStart(event) {
+        event.preventDefault();
+
         if (this.show === true) {
             this.show = false;
             this.leftTouchId = -1;
@@ -83,6 +85,7 @@ export default class TouchController {
 
 
     touchMove(event) {
+        event.preventDefault();
         for (let i = 0; i < event.changedTouches.length; i += 1) {
             const t = event.changedTouches[i];
             if (this.leftTouchId === t.identifier) {
@@ -102,6 +105,7 @@ export default class TouchController {
     }
 
     touchEnd(event) {
+        event.preventDefault();
         this.show = false;
         for (let i = 0; i < event.changedTouches.length; i += 1) {
             const t = event.changedTouches[i];
