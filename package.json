@@ -5,6 +5,7 @@
   "author": "godjam <corentin.lallier@gmail.com>",
   "license": "MIT",
   "dependencies": {
+    "cannon": "^0.6.2",
     "three": "^0.115.0"
   },
   "devDependencies": {

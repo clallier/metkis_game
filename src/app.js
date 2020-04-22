@@ -3,24 +3,30 @@ import ThreeScene from './threescene';
 import MeshFactory from './meshfactory';
 import SpriteSheet from './spritesheet'
 import TouchController from './touchcontroller';
+import EntityArray from './entityarray';
 
 import constants from './game/constants.json';
 import Block from './game/block';
 import Tile from './game/tile';
 import Item from './game/item';
 import Hero from './game/hero';
-import EntityArray from './entityarray';
-import { Raycaster, Vector3 } from 'three';
+
+import CANNON from 'cannon';
+import CannonDebugRenderer from './cannondebugrenderer';
 
 export default class App {
     constructor() {
         new MiniConsole();
         this.lastTime = 0;
         this.ts = new ThreeScene();
-        this.controller = new TouchController(
-            parseInt(constants.colors.blue)
-        );
-        this.entities = new EntityArray();
+        this.world = new CANNON.World();
+        this.world.gravity.set(0, -10, 0);
+
+        this.debugRenderer = new CannonDebugRenderer(this.ts.scene, this.world);
+        this.controller = new TouchController();
+
+        // TODO to be replaced by an ECS
+        this.entities = [];
 
         window.addEventListener('resize', () => this.resize(), false);
         this.resize()
@@ -54,27 +60,39 @@ export default class App {
                     -l + z_offset,
                 ]
 
-                if (c == 0) {
-                    this.ts.scene.add(new Tile(size, position, spriteSheet))
-                }
-                else if (c == 1) {
+                this.ts.scene.add(new Tile(size, position, spriteSheet))
+
+                if (c == 1) {
+                    const item = new Item(size, position, spriteSheet);
+                    this.ts.scene.add(item);
                     const block = new Block(size, position, spriteSheet);
-                    this.entities.add(block)
-                    this.ts.scene.add(block);
+                    this.world.addBody(block.body);
+                    this.ts.scene.add(block.mesh);
+                    this.entities.push(block);
                 }
                 else if (c == 2) {
-                    this.ts.scene.add(new Tile(size, position, spriteSheet))
                     const item = new Item(size, position, spriteSheet);
                     this.ts.scene.add(item);
                 }
                 else if (c == 3) {
-                    this.ts.scene.add(new Tile(size, position, spriteSheet))
                     this.hero = new Hero(size, position, spriteSheet);
-                    this.ts.scene.add(this.hero);
+                    this.world.addBody(this.hero.body);
+                    this.ts.scene.add(this.hero.mesh);
+                    this.entities.push(this.hero);
                 }
             }
         }
-        this.entities.mergeAddQueue();
+        const ground = new CANNON.Body({
+            type: CANNON.Body.STATIC,
+            mass: 0,
+            shape: new CANNON.Box(new CANNON.Vec3(cols, 1, rows)),
+            position: new CANNON.Vec3(0, -0.5, 0),
+            material: new CANNON.Material({
+                friction: 0
+            })
+        })
+        ground.updateMassProperties();
+        this.world.addBody(ground);
 
         requestAnimationFrame((t) => this.update(t));
     }
@@ -83,27 +101,31 @@ export default class App {
         let delta = (t - this.lastTime) * 0.001;
         delta = Math.min(delta, 0.1);
         this.lastTime = t;
-        this.ts.render(delta);
 
+        // TODO update controller
         const dir = this.controller.state.dir;
-        const velocity = new Vector3(dir.x, 0, dir.y)
-            .multiplyScalar(-delta * 2);
+        let force = new CANNON.Vec3(dir.x, 0, dir.y)
+            .scale(-1);
+        this.hero.body.applyImpulse(force, this.hero.body.position);
 
-        const vel_norm = velocity.clone().normalize();
-        const length = velocity.length() + 0.5;
+        // TODO update physics
+        this.world.step(delta);
 
-        var ray = new Raycaster(this.hero.position, vel_norm);
-        var res = ray.intersectObjects(this.entities.array);
-        for (let i = 0; i < res.length; i++) {
-            const r = res[i];
-            if (r.distance < length) {
-                velocity.clampLength(0, 0);
-
-                console.log(velocity);
-            }
+        // TODO hero update
+        for (let i = 0; i < this.entities.length; i++) {
+            const e = this.entities[i];
+            e.mesh.position.copy(e.body.position);
+            e.mesh.quaternion.copy(e.body.quaternion);
         }
-        this.hero.position.x += velocity.x;
-        this.hero.position.z += velocity.z;
+        // force hero rotation
+        this.hero.body.quaternion = new CANNON.Quaternion(0, 0, 0, 1);
+       
+        // TODO update camera
+        this.ts.camera.position.y = this.hero.mesh.position.y + 8;
+
+        // TODO render
+        // this.debugRenderer.update();
+        this.ts.render(delta);
         this.controller.display();
         requestAnimationFrame((t) => this.update(t));
     }

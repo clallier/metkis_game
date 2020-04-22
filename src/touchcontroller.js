@@ -1,7 +1,7 @@
 import { Vector2 } from "three";
 
 export default class TouchController {
-    constructor(color = 0x00ffff) {
+    constructor() {
         this.state = {
             dir: new Vector2(),
             // action btn
@@ -15,6 +15,12 @@ export default class TouchController {
             down: 40,
             space: 32
         };
+
+        this.colors = {
+            background: 'rgba(64, 213, 142, 0.2)',
+            outline: 'rgba(255, 255, 255, 0.5)',
+            joystick: 'rgba(255, 0, 255, 0.3)'
+        }
 
         this.canvas = document.createElement('canvas');
 
@@ -34,8 +40,6 @@ export default class TouchController {
 
 
         this.r = Math.max(this.width / 20, 50);
-        this.color = color;
-
         this.show = true;
         let v0 = new Vector2(this.r * 2, this.height - this.r * 2);
         let v1 = new Vector2(this.width - this.r * 2, this.height - this.r * 2);
@@ -67,7 +71,8 @@ export default class TouchController {
         for (let i = 0; i < event.changedTouches.length; i += 1) {
             const t = event.changedTouches[i];
 
-            if (this.leftTouchId < 0 && t.clientX < this.width / 2) {
+            // TODO cleanup
+            if (this.leftTouchId < 0 && t.clientX < this.width) {
                 this.leftTouchId = t.identifier;
                 this.leftTouchStartPos.x = this.leftTouchPos.x = t.clientX;
                 this.leftTouchStartPos.y = this.leftTouchPos.y = t.clientY;
@@ -169,33 +174,31 @@ export default class TouchController {
         
         const PI2 = 2 * Math.PI;
         if (this.leftTouchID > -1) {
-            this.ctx.strokeStyle = this.color;
-            this.ctx.lineWidth = 2;
+            this.ctx.strokeStyle = this.colors.outline;
+            this.ctx.fillStyle = this.colors.background;
+            this.ctx.lineWidth = 8;
             this.ctx.beginPath();
             this.ctx.arc(this.leftTouchStartPos.x, this.leftTouchStartPos.y, this.r, 0, PI2);
             this.ctx.stroke();
             this.ctx.closePath();
 
-            this.ctx.beginPath();
-            this.ctx.arc(this.leftTouchStartPos.x, this.leftTouchStartPos.y, this.r * 1.1, 0, PI2);
-            this.ctx.stroke();
-            this.ctx.closePath();
-
-            this.ctx.strokeStyle = '#ddd';
-            this.ctx.lineWidth = 4;
+            this.ctx.strokeStyle = this.colors.outline;
+            this.ctx.fillStyle = this.colors.joystick;
+            this.ctx.lineWidth = 2;
             this.ctx.beginPath();
             this.ctx.arc(this.leftTouchPos.x, this.leftTouchPos.y, this.r * 0.9, 0, PI2);
             this.ctx.stroke();
+            this.ctx.fill();
             this.ctx.closePath();
         }
 
-        if (this.rightTouchID > -1) {
-            this.ctx.strokeStyle = this.color;
-            this.ctx.fillStyle = '#ddd';
-            this.ctx.beginPath();
-            this.ctx.arc(this.rightTouchPos.x, this.rightTouchPos.y, this.r * 0.9, 0, PI2);
-            this.ctx.stroke();
-            this.ctx.closePath();
-        }
+        // if (this.rightTouchID > -1) {
+        //     this.ctx.strokeStyle = this.color;
+        //     this.ctx.fillStyle = '#ddd';
+        //     this.ctx.beginPath();
+        //     this.ctx.arc(this.rightTouchPos.x, this.rightTouchPos.y, this.r * 0.9, 0, PI2);
+        //     this.ctx.stroke();
+        //     this.ctx.closePath();
+        // }
     }
 }
