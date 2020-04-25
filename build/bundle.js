@@ -50684,17 +50684,29 @@ class SpriteSheet {
         )
     }
 
-    getTile(x, y) {
+    getTile(x, y, options = {}) {
+        const width = options.width || this.tile_w;
+        const height = options.height || this.tile_w;
+        const flip_x = options.flip_x || 1;
+        const flip_y = options.flip_y || 1;
+        // create canvas
         const ctx = document.createElement('canvas').getContext('2d');
         // size the canvas to the desired sub-sprite size
-        x = x * this.tile_w;
-        y = y * this.tile_h;
-        ctx.canvas.width = this.tile_w;
-        ctx.canvas.height = this.tile_w;
+        ctx.canvas.width = width;
+        ctx.canvas.height = height;
+        // scale ctx
+        ctx.save();
+        ctx.translate(0, 0);
+        ctx.scale(flip_x, flip_y);
         // clip the sub-sprite from x,y,w,h on the spritesheet image
-        ctx.drawImage(this.spritesheet, 
-            x, y, this.tile_w, this.tile_h, 
-            0, 0, this.tile_w, this.tile_h);
+        x = x * this.tile_w; // in tiles
+        y = y * this.tile_h; // in tiles
+        const dest_x = flip_x == -1? -width: 0;
+        const dest_y = flip_y == -1? -height: 0;
+        ctx.drawImage(this.spritesheet,
+            x, y, width, height,            // source
+            dest_x, dest_y, width, height); // dest
+        ctx.restore();
         return ctx.canvas;
     }
 
@@ -50916,16 +50928,21 @@ var level = {
 	name: "level1",
 	data: [
 		"111111111",
-		"100000021",
-		"100110001",
-		"100011001",
-		"100000001",
-		"111000111",
-		"110000001",
-		"100010001",
-		"100011001",
-		"103001001",
-		"100000001",
+		"1      21",
+		"1       1",
+		"1  11   1",
+		"1   11  1",
+		"1       1",
+		"1       1",
+		"111444111",
+		"11      1",
+		"1       1",
+		"1   1   1",
+		"1   11  1",
+		"1  5 1  1",
+		"1       1",
+		"1   3   1",
+		"1       1",
 		"111111111"
 	]
 };
@@ -64594,9 +64611,11 @@ class Block {
         const box = new cannon.Box(box_size);
 
         const body = new cannon.Body({
-            mass: 0.1,
+            type: cannon.Body.STATIC,
+            mass: 0,
             position: new cannon.Vec3(position[0], position[1], position[2])
         });
+        body.updateMassProperties();
         body.addShape(box);
         
         mesh.body = body;
@@ -64658,32 +64677,111 @@ class Item {
 
 class Hero {
     constructor(size, position, spriteSheet) {
-
-        const canvas = spriteSheet.getTile(0, 8);
-
-        const texture = new CanvasTexture(canvas);
-        texture.minFilter = LinearMipmapLinearFilter;
-        texture.magFilter = NearestFilter;
-        texture.needsUpdate = true;
-
-        const material = new SpriteMaterial({ map: texture });
+        this.frame = 0;
+        this.time = 0;
+        const canvas = [];
+        canvas.push(spriteSheet.getTile(0, 8));
+        canvas.push(spriteSheet.getTile(7, 7));
         
+        // TODO: animator
+        this.anim_right = [];
+        this.anim_right.push(this.createTexture(canvas[0]));
+        this.anim_right.push(this.createTexture(canvas[1]));
+        this.anim_left = [];
+        this.anim_left.push(this.createTexture(canvas[0], {repeat_x:-1}));
+        this.anim_left.push(this.createTexture(canvas[1], {repeat_x:-1}));
+        this.anim = this.anim_left;
+
+        const material = new SpriteMaterial({ map: this.anim[0] });
         const mesh = new Sprite(material);
         mesh.scale.set(0.8 * size[0], 0.8 * size[1], 1);
         mesh.position.x = position[0];
         mesh.position.y = position[1];
         mesh.position.z = position[2];
 
-        const box_size = new cannon.Vec3(0.5 * size[0], 0.5 * size[1], 0.5 * size[2]); 
+        const box_size = new cannon.Vec3(0.4 * size[0], 0.4 * size[1], 0.4 * size[2]);
         const box = new cannon.Box(box_size);
 
         const body = new cannon.Body({
             mass: 1,
             position: new cannon.Vec3(position[0], position[1], position[2]),
             material: new cannon.Material({
-                friction: 1,
-                restitution:0.2
+                friction: 0.1,
+                restitution: 0.5
             })
+        });
+        body.addShape(box);
+
+        mesh.body = body;
+        this.body = body;
+        this.mesh = mesh;
+    }
+
+    createTexture(canvas, options = {}) {
+        const repeat_x = options.repeat_x || 1;
+        const repeat_y = options.repeat_y || 1;
+        const texture = new CanvasTexture(canvas);
+        texture.minFilter = LinearMipmapLinearFilter;
+        texture.magFilter = NearestFilter;
+        texture.wrapS = texture.wrapT = RepeatWrapping;
+        texture.repeat.set(repeat_x, repeat_y); 
+        texture.needsUpdate = true;
+        return texture;
+    }
+
+    update(delta) {
+        // TODO
+        this.time += delta;
+        if(this.body.velocity.x < -0.01) {
+            this.anim = this.anim_right;
+        }
+        else if(this.body.velocity.x > 0.01) {
+            this.anim = this.anim_left;
+        }
+
+        // TODO getFrame, changeFrame ?
+        if (this.time > 1) {
+            this.frame += 1;
+            if (this.frame > 1) this.frame = 0;
+            this.mesh.material.map = this.anim[this.frame];
+            this.mesh.material.map.needsUpdate = true;
+            this.mesh.material.needsUpdate = true;
+            this.time = 0;
+        }
+        
+    }
+}
+
+class Crate {
+    constructor(size, position, spriteSheet) {
+        const geometry = new BoxGeometry(
+            size[0],
+            size[1],
+            size[2]
+        );
+        const tile = spriteSheet.getTile(0, 11);
+
+        const texture = new Texture(tile);
+        texture.minFilter = LinearMipmapLinearFilter;
+        texture.magFilter = NearestFilter;
+        texture.needsUpdate = true;
+
+        const material = new MeshBasicMaterial({
+            map: texture
+        });
+        const mesh = new Mesh(geometry, material);
+        mesh.scale.set(0.8 * size[0], 0.8 * size[1], 0.8 * size[2]);
+        mesh.position.x = position[0];
+        mesh.position.y = position[1];
+        mesh.position.z = position[2];
+
+
+        const box_size = new cannon.Vec3(0.4 * size[0], 0.4 * size[2], 0.4 * size[1]); 
+        const box = new cannon.Box(box_size);
+
+        const body = new cannon.Body({
+            mass: 0.01,
+            position: new cannon.Vec3(position[0], position[1], position[2])
         });
         body.addShape(box);
         
@@ -64932,6 +65030,40 @@ const _scaleMesh = (mesh, shape) => {
     }
 };
 
+class Ball {
+    constructor(size, position, spriteSheet) {
+        const geometry = new IcosahedronGeometry(0.5 * size[0], 1);
+        const tile = spriteSheet.getTile(6, 2);
+
+        const texture = new Texture(tile);
+        texture.minFilter = LinearMipmapLinearFilter;
+        texture.magFilter = NearestFilter;
+        texture.needsUpdate = true;
+
+        const material = new MeshBasicMaterial({
+            map: texture
+        });
+        const mesh = new Mesh(geometry, material);
+        mesh.scale.set(0.8 * size[0], 0.8 * size[1], 0.8 * size[2]);
+        mesh.position.x = position[0];
+        mesh.position.y = position[1];
+        mesh.position.z = position[2];
+
+
+        const sphere = new cannon.Sphere(0.4 * size[0]);
+
+        const body = new cannon.Body({
+            mass: 0.01,
+            position: new cannon.Vec3(position[0], position[1], position[2])
+        });
+        body.addShape(sphere);
+        
+        mesh.body = body;
+        this.body = body;
+        this.mesh = mesh;
+    }
+}
+
 class App {
     constructor() {
         new MiniConsole();
@@ -64981,8 +65113,6 @@ class App {
                 this.ts.scene.add(new Tile(size, position, spriteSheet));
 
                 if (c == 1) {
-                    const item = new Item(size, position, spriteSheet);
-                    this.ts.scene.add(item);
                     const block = new Block(size, position, spriteSheet);
                     this.world.addBody(block.body);
                     this.ts.scene.add(block.mesh);
@@ -64998,13 +65128,26 @@ class App {
                     this.ts.scene.add(this.hero.mesh);
                     this.entities.push(this.hero);
                 }
+                if (c == 4) {
+                    const create = new Crate(size, position, spriteSheet);
+                    this.world.addBody(create.body);
+                    this.ts.scene.add(create.mesh);
+                    this.entities.push(create);
+                }
+                if (c == 5) {
+                    const create = new Ball(size, position, spriteSheet);
+                    this.world.addBody(create.body);
+                    this.ts.scene.add(create.mesh);
+                    this.entities.push(create);
+                }
+                
             }
         }
         const ground = new cannon.Body({
             type: cannon.Body.STATIC,
             mass: 0,
-            shape: new cannon.Box(new cannon.Vec3(cols, 1, rows)),
-            position: new cannon.Vec3(0, -0.5, 0),
+            shape: new cannon.Box(new cannon.Vec3(.5 * cols, 1, .5 * rows)),
+            position: new cannon.Vec3(0, -0.5, 0.5),
             material: new cannon.Material({
                 friction: 0
             })
@@ -65023,7 +65166,7 @@ class App {
         // TODO update controller
         const dir = this.controller.state.dir;
         let force = new cannon.Vec3(dir.x, 0, dir.y)
-            .scale(-1);
+            .scale(-0.5);
         this.hero.body.applyImpulse(force, this.hero.body.position);
 
         // TODO update physics
@@ -65035,14 +65178,20 @@ class App {
             e.mesh.position.copy(e.body.position);
             e.mesh.quaternion.copy(e.body.quaternion);
         }
+
         // force hero rotation
         this.hero.body.quaternion = new cannon.Quaternion(0, 0, 0, 1);
+        this.hero.update(delta);
        
         // TODO update camera
+        this.ts.camera.position.x = this.hero.mesh.position.x;
         this.ts.camera.position.y = this.hero.mesh.position.y + 8;
+        this.ts.camera.position.z = this.hero.mesh.position.z - 8;
+        this.ts.control.target.z = this.hero.mesh.position.z + 8;
+
 
         // TODO render
-        // this.debugRenderer.update();
+        this.debugRenderer.update();
         this.ts.render(delta);
         this.controller.display();
         requestAnimationFrame((t) => this.update(t));

@@ -1,21 +1,14 @@
 import {
     BoxGeometry, Texture, MeshBasicMaterial, Mesh,
-    LinearMipmapLinearFilter, NearestFilter, MeshPhongMaterial
+    LinearMipmapLinearFilter, NearestFilter, MeshPhongMaterial, IcosahedronGeometry
 } from "three";
 
 import CANNON from 'cannon';
 
-export default class Block {
+export default class Ball {
     constructor(size, position, spriteSheet) {
-        const geometry = new BoxGeometry(
-            size[0],
-            size[1],
-            size[2]
-        );
-
-        const x = ~~(Math.random() * 6) + 2
-        const y = ~~(Math.random() * 2) + 10
-        const tile = spriteSheet.getTile(x, y);
+        const geometry = new IcosahedronGeometry(0.5 * size[0], 1);
+        const tile = spriteSheet.getTile(6, 2);
 
         const texture = new Texture(tile);
         texture.minFilter = LinearMipmapLinearFilter;
@@ -26,21 +19,19 @@ export default class Block {
             map: texture
         });
         const mesh = new Mesh(geometry, material);
+        mesh.scale.set(0.8 * size[0], 0.8 * size[1], 0.8 * size[2]);
         mesh.position.x = position[0];
         mesh.position.y = position[1];
         mesh.position.z = position[2];
 
 
-        const box_size = new CANNON.Vec3(0.5 * size[0], 0.5 * size[2], 0.5 * size[1]); 
-        const box = new CANNON.Box(box_size);
+        const sphere = new CANNON.Sphere(0.4 * size[0]);
 
         const body = new CANNON.Body({
-            type: CANNON.Body.STATIC,
-            mass: 0,
+            mass: 0.01,
             position: new CANNON.Vec3(position[0], position[1], position[2])
         })
-        body.updateMassProperties();
-        body.addShape(box)
+        body.addShape(sphere)
         
         mesh.body = body;
         this.body = body;

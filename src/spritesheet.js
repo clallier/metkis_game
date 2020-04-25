@@ -16,17 +16,29 @@ export default class SpriteSheet {
         )
     }
 
-    getTile(x, y) {
+    getTile(x, y, options = {}) {
+        const width = options.width || this.tile_w;
+        const height = options.height || this.tile_w;
+        const flip_x = options.flip_x || 1;
+        const flip_y = options.flip_y || 1;
+        // create canvas
         const ctx = document.createElement('canvas').getContext('2d');
         // size the canvas to the desired sub-sprite size
-        x = x * this.tile_w;
-        y = y * this.tile_h;
-        ctx.canvas.width = this.tile_w;
-        ctx.canvas.height = this.tile_w;
+        ctx.canvas.width = width;
+        ctx.canvas.height = height;
+        // scale ctx
+        ctx.save();
+        ctx.translate(0, 0);
+        ctx.scale(flip_x, flip_y);
         // clip the sub-sprite from x,y,w,h on the spritesheet image
-        ctx.drawImage(this.spritesheet, 
-            x, y, this.tile_w, this.tile_h, 
-            0, 0, this.tile_w, this.tile_h);
+        x = x * this.tile_w; // in tiles
+        y = y * this.tile_h; // in tiles
+        const dest_x = flip_x == -1? -width: 0
+        const dest_y = flip_y == -1? -height: 0
+        ctx.drawImage(this.spritesheet,
+            x, y, width, height,            // source
+            dest_x, dest_y, width, height); // dest
+        ctx.restore();
         return ctx.canvas;
     }
 

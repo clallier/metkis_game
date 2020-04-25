@@ -10,9 +10,11 @@ import Block from './game/block';
 import Tile from './game/tile';
 import Item from './game/item';
 import Hero from './game/hero';
+import Crate from './game/crate';
 
 import CANNON from 'cannon';
 import CannonDebugRenderer from './cannondebugrenderer';
+import Ball from './game/ball';
 
 export default class App {
     constructor() {
@@ -63,8 +65,6 @@ export default class App {
                 this.ts.scene.add(new Tile(size, position, spriteSheet))
 
                 if (c == 1) {
-                    const item = new Item(size, position, spriteSheet);
-                    this.ts.scene.add(item);
                     const block = new Block(size, position, spriteSheet);
                     this.world.addBody(block.body);
                     this.ts.scene.add(block.mesh);
@@ -80,13 +80,26 @@ export default class App {
                     this.ts.scene.add(this.hero.mesh);
                     this.entities.push(this.hero);
                 }
+                if (c == 4) {
+                    const create = new Crate(size, position, spriteSheet);
+                    this.world.addBody(create.body);
+                    this.ts.scene.add(create.mesh);
+                    this.entities.push(create);
+                }
+                if (c == 5) {
+                    const create = new Ball(size, position, spriteSheet);
+                    this.world.addBody(create.body);
+                    this.ts.scene.add(create.mesh);
+                    this.entities.push(create);
+                }
+                
             }
         }
         const ground = new CANNON.Body({
             type: CANNON.Body.STATIC,
             mass: 0,
-            shape: new CANNON.Box(new CANNON.Vec3(cols, 1, rows)),
-            position: new CANNON.Vec3(0, -0.5, 0),
+            shape: new CANNON.Box(new CANNON.Vec3(.5 * cols, 1, .5 * rows)),
+            position: new CANNON.Vec3(0, -0.5, 0.5),
             material: new CANNON.Material({
                 friction: 0
             })
@@ -105,7 +118,7 @@ export default class App {
         // TODO update controller
         const dir = this.controller.state.dir;
         let force = new CANNON.Vec3(dir.x, 0, dir.y)
-            .scale(-1);
+            .scale(-0.5);
         this.hero.body.applyImpulse(force, this.hero.body.position);
 
         // TODO update physics
@@ -117,14 +130,20 @@ export default class App {
             e.mesh.position.copy(e.body.position);
             e.mesh.quaternion.copy(e.body.quaternion);
         }
+
         // force hero rotation
         this.hero.body.quaternion = new CANNON.Quaternion(0, 0, 0, 1);
+        this.hero.update(delta);
        
         // TODO update camera
+        this.ts.camera.position.x = this.hero.mesh.position.x;
         this.ts.camera.position.y = this.hero.mesh.position.y + 8;
+        this.ts.camera.position.z = this.hero.mesh.position.z - 8;
+        this.ts.control.target.z = this.hero.mesh.position.z + 8;
+
 
         // TODO render
-        // this.debugRenderer.update();
+        this.debugRenderer.update();
         this.ts.render(delta);
         this.controller.display();
         requestAnimationFrame((t) => this.update(t));

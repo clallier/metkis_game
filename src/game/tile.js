@@ -1,6 +1,6 @@
 import {
     PlaneGeometry, Texture, MeshBasicMaterial, Mesh,
-    LinearMipmapLinearFilter, NearestFilter, MeshPhongMaterial
+    LinearMipmapLinearFilter, NearestFilter
 } from "three";
 
 export default class Tile {
