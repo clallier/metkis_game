@@ -13,19 +13,18 @@ export default class Block {
             size[2]
         );
 
-        const x = ~~(Math.random() * 6) + 2
-        const y = ~~(Math.random() * 2) + 10
-        const tile = spriteSheet.getTile(x, y);
+        // TODO function 
+        const texture0 = this.createRandomTexture(spriteSheet);
+        const texture1 = this.createRandomTexture(spriteSheet);
 
-        const texture = new Texture(tile);
-        texture.minFilter = LinearMipmapLinearFilter;
-        texture.magFilter = NearestFilter;
-        texture.needsUpdate = true;
-
-        const material = new MeshBasicMaterial({
-            map: texture
-        });
-        const mesh = new Mesh(geometry, material);
+        const materials = [];
+        materials.push(new MeshBasicMaterial({map: texture1})); // left
+        materials.push(new MeshBasicMaterial({map: texture1})); // right
+        materials.push(new MeshBasicMaterial({map: texture0})); // top
+        materials.push(new MeshBasicMaterial({map: texture0})); // bottom
+        materials.push(new MeshBasicMaterial({map: texture1})); // back
+        materials.push(new MeshBasicMaterial({map: texture1})); // front
+        const mesh = new Mesh(geometry, materials);
         mesh.position.x = position[0];
         mesh.position.y = position[1];
         mesh.position.z = position[2];
@@ -37,7 +36,8 @@ export default class Block {
         const body = new CANNON.Body({
             type: CANNON.Body.STATIC,
             mass: 0,
-            position: new CANNON.Vec3(position[0], position[1], position[2])
+            position: new CANNON.Vec3(position[0], position[1], position[2]),
+            material: new CANNON.Material({restitution: 0.9})
         })
         body.updateMassProperties();
         body.addShape(box)
@@ -45,5 +45,16 @@ export default class Block {
         mesh.body = body;
         this.body = body;
         this.mesh = mesh;
+    }
+
+    createRandomTexture(spriteSheet, options = {}) {
+        const x = options.x != null? options.x: ~~(Math.random() * 6) + 2;
+        const y = options.y != null? options.y: ~~(Math.random() * 2) + 10;
+        const tile = spriteSheet.getTile(x, y);
+        const texture = new Texture(tile);
+        texture.minFilter = LinearMipmapLinearFilter;
+        texture.magFilter = NearestFilter;
+        texture.needsUpdate = true;
+        return texture;
     }
 }

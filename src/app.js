@@ -143,7 +143,7 @@ export default class App {
 
 
         // TODO render
-        this.debugRenderer.update();
+        // this.debugRenderer.update();
         this.ts.render(delta);
         this.controller.display();
         requestAnimationFrame((t) => this.update(t));

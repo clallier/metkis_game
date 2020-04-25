@@ -17,10 +17,10 @@ export default class SpriteSheet {
     }
 
     getTile(x, y, options = {}) {
-        const width = options.width || this.tile_w;
-        const height = options.height || this.tile_w;
-        const flip_x = options.flip_x || 1;
-        const flip_y = options.flip_y || 1;
+        const width = options.width != null? options.width: this.tile_w;
+        const height = options.height != null? options.height: this.tile_w;
+        const flip_x = options.flip_x != null? options.flip_x: 1;
+        const flip_y = options.flip_y != null? options.flip_y: 1;
         // create canvas
         const ctx = document.createElement('canvas').getContext('2d');
         // size the canvas to the desired sub-sprite size

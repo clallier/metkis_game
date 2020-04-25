@@ -35,8 +35,8 @@ export default class Hero {
             mass: 1,
             position: new CANNON.Vec3(position[0], position[1], position[2]),
             material: new CANNON.Material({
-                friction: 0.1,
-                restitution: 0.5
+                friction: 0.5,
+                restitution: 0.2
             })
         })
         body.addShape(box)
@@ -47,8 +47,8 @@ export default class Hero {
     }
 
     createTexture(canvas, options = {}) {
-        const repeat_x = options.repeat_x || 1;
-        const repeat_y = options.repeat_y || 1;
+        const repeat_x = options.repeat_x != null? options.repeat_x: 1;
+        const repeat_y = options.repeat_y != null? options.repeat_y: 1;
         const texture = new CanvasTexture(canvas);
         texture.minFilter = LinearMipmapLinearFilter;
         texture.magFilter = NearestFilter;

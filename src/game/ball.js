@@ -1,6 +1,6 @@
 import {
-    BoxGeometry, Texture, MeshBasicMaterial, Mesh,
-    LinearMipmapLinearFilter, NearestFilter, MeshPhongMaterial, IcosahedronGeometry
+    Texture, MeshBasicMaterial, Mesh,
+    LinearMipmapLinearFilter, NearestFilter, IcosahedronGeometry
 } from "three";
 
 import CANNON from 'cannon';
@@ -29,7 +29,8 @@ export default class Ball {
 
         const body = new CANNON.Body({
             mass: 0.01,
-            position: new CANNON.Vec3(position[0], position[1], position[2])
+            position: new CANNON.Vec3(position[0], position[1], position[2]),
+            material: new CANNON.Material({restitution: 0.9})
         })
         body.addShape(sphere)
         

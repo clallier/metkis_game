@@ -50685,10 +50685,10 @@ class SpriteSheet {
     }
 
     getTile(x, y, options = {}) {
-        const width = options.width || this.tile_w;
-        const height = options.height || this.tile_w;
-        const flip_x = options.flip_x || 1;
-        const flip_y = options.flip_y || 1;
+        const width = options.width != null? options.width: this.tile_w;
+        const height = options.height != null? options.height: this.tile_w;
+        const flip_x = options.flip_x != null? options.flip_x: 1;
+        const flip_y = options.flip_y != null? options.flip_y: 1;
         // create canvas
         const ctx = document.createElement('canvas').getContext('2d');
         // size the canvas to the desired sub-sprite size
@@ -64589,19 +64589,18 @@ class Block {
             size[2]
         );
 
-        const x = ~~(Math.random() * 6) + 2;
-        const y = ~~(Math.random() * 2) + 10;
-        const tile = spriteSheet.getTile(x, y);
+        // TODO function 
+        const texture0 = this.createRandomTexture(spriteSheet);
+        const texture1 = this.createRandomTexture(spriteSheet);
 
-        const texture = new Texture(tile);
-        texture.minFilter = LinearMipmapLinearFilter;
-        texture.magFilter = NearestFilter;
-        texture.needsUpdate = true;
-
-        const material = new MeshBasicMaterial({
-            map: texture
-        });
-        const mesh = new Mesh(geometry, material);
+        const materials = [];
+        materials.push(new MeshBasicMaterial({map: texture1})); // left
+        materials.push(new MeshBasicMaterial({map: texture1})); // right
+        materials.push(new MeshBasicMaterial({map: texture0})); // top
+        materials.push(new MeshBasicMaterial({map: texture0})); // bottom
+        materials.push(new MeshBasicMaterial({map: texture1})); // back
+        materials.push(new MeshBasicMaterial({map: texture1})); // front
+        const mesh = new Mesh(geometry, materials);
         mesh.position.x = position[0];
         mesh.position.y = position[1];
         mesh.position.z = position[2];
@@ -64613,7 +64612,8 @@ class Block {
         const body = new cannon.Body({
             type: cannon.Body.STATIC,
             mass: 0,
-            position: new cannon.Vec3(position[0], position[1], position[2])
+            position: new cannon.Vec3(position[0], position[1], position[2]),
+            material: new cannon.Material({restitution: 0.9})
         });
         body.updateMassProperties();
         body.addShape(box);
@@ -64621,6 +64621,17 @@ class Block {
         mesh.body = body;
         this.body = body;
         this.mesh = mesh;
+    }
+
+    createRandomTexture(spriteSheet, options = {}) {
+        const x = options.x != null? options.x: ~~(Math.random() * 6) + 2;
+        const y = options.y != null? options.y: ~~(Math.random() * 2) + 10;
+        const tile = spriteSheet.getTile(x, y);
+        const texture = new Texture(tile);
+        texture.minFilter = LinearMipmapLinearFilter;
+        texture.magFilter = NearestFilter;
+        texture.needsUpdate = true;
+        return texture;
     }
 }
 
@@ -64706,8 +64717,8 @@ class Hero {
             mass: 1,
             position: new cannon.Vec3(position[0], position[1], position[2]),
             material: new cannon.Material({
-                friction: 0.1,
-                restitution: 0.5
+                friction: 0.5,
+                restitution: 0.2
             })
         });
         body.addShape(box);
@@ -64718,8 +64729,8 @@ class Hero {
     }
 
     createTexture(canvas, options = {}) {
-        const repeat_x = options.repeat_x || 1;
-        const repeat_y = options.repeat_y || 1;
+        const repeat_x = options.repeat_x != null? options.repeat_x: 1;
+        const repeat_y = options.repeat_y != null? options.repeat_y: 1;
         const texture = new CanvasTexture(canvas);
         texture.minFilter = LinearMipmapLinearFilter;
         texture.magFilter = NearestFilter;
@@ -65054,7 +65065,8 @@ class Ball {
 
         const body = new cannon.Body({
             mass: 0.01,
-            position: new cannon.Vec3(position[0], position[1], position[2])
+            position: new cannon.Vec3(position[0], position[1], position[2]),
+            material: new cannon.Material({restitution: 0.9})
         });
         body.addShape(sphere);
         
@@ -65191,7 +65203,7 @@ class App {
 
 
         // TODO render
-        this.debugRenderer.update();
+        // this.debugRenderer.update();
         this.ts.render(delta);
         this.controller.display();
         requestAnimationFrame((t) => this.update(t));
