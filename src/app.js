@@ -3,7 +3,6 @@ import ThreeScene from './threescene';
 import MeshFactory from './meshfactory';
 import SpriteSheet from './spritesheet'
 import TouchController from './touchcontroller';
-import EntityArray from './entityarray';
 
 import constants from './game/constants.json';
 import Block from './game/block';
@@ -11,10 +10,13 @@ import Tile from './game/tile';
 import Item from './game/item';
 import Hero from './game/hero';
 import Crate from './game/crate';
+import Ball from './game/ball';
+import Enemy from './game/enemy';
+import Bullet from './game/bullet';
 
+import { Vector3 } from 'three';
 import CANNON from 'cannon';
 import CannonDebugRenderer from './cannondebugrenderer';
-import Ball from './game/ball';
 
 export default class App {
     constructor() {
@@ -43,8 +45,10 @@ export default class App {
     }
 
     async start() {
-        const spriteSheet = new SpriteSheet('resources/textures/raw_tileset01.png', 8, 15, 8, 8);
-        await spriteSheet.load();
+        // TODO const
+        this.spriteSheet = new SpriteSheet('resources/textures/raw_tileset01.png', 8, 15, 8, 8);
+        await this.spriteSheet.load();
+        const spriteSheet = this.spriteSheet;
 
         const data = constants.level.data;
         const rows = data.length;
@@ -72,7 +76,7 @@ export default class App {
                 }
                 else if (c == 2) {
                     const item = new Item(size, position, spriteSheet);
-                    this.ts.scene.add(item);
+                    this.ts.scene.add(item.mesh);
                 }
                 else if (c == 3) {
                     this.hero = new Hero(size, position, spriteSheet);
@@ -81,18 +85,23 @@ export default class App {
                     this.entities.push(this.hero);
                 }
                 if (c == 4) {
-                    const create = new Crate(size, position, spriteSheet);
-                    this.world.addBody(create.body);
-                    this.ts.scene.add(create.mesh);
-                    this.entities.push(create);
+                    const crate = new Crate(size, position, spriteSheet);
+                    this.world.addBody(crate.body);
+                    this.ts.scene.add(crate.mesh);
+                    this.entities.push(crate);
                 }
                 if (c == 5) {
-                    const create = new Ball(size, position, spriteSheet);
-                    this.world.addBody(create.body);
-                    this.ts.scene.add(create.mesh);
-                    this.entities.push(create);
+                    const ball = new Ball(size, position, spriteSheet);
+                    this.world.addBody(ball.body);
+                    this.ts.scene.add(ball.mesh);
+                    this.entities.push(ball);
                 }
-                
+                if (c == 6) {
+                    this.enemy = new Enemy(size, position, spriteSheet);
+                    this.world.addBody(this.enemy.body);
+                    this.ts.scene.add(this.enemy.mesh);
+                    this.entities.push(this.enemy);
+                }
             }
         }
         const ground = new CANNON.Body({
@@ -132,8 +141,37 @@ export default class App {
         }
 
         // force hero rotation
-        this.hero.body.quaternion = new CANNON.Quaternion(0, 0, 0, 1);
+        // this.hero.body.quaternion = new CANNON.Quaternion(0, 0, 0, 1);
         this.hero.update(delta);
+
+        // TODO enemy update
+        this.enemy.time += delta;
+    
+        if(this.enemy.time > 0.1) {
+            this.enemy.time = 0;
+            // fire
+            // TODO position, velocity
+            // add to physics
+            // add to render
+            // edit collision
+            // TODO pas sur por le new ou  le create p-e clone une instance
+            // TODO spriteSheet
+            const radius = 1;
+            const enemy_pos = this.enemy.mesh.position.clone();
+            const spriteSheet = this.spriteSheet;
+            const direction = this.hero.mesh.position.clone()
+                .sub(enemy_pos)
+                .normalize();
+            const position = [enemy_pos.x + direction.x, 1, enemy_pos.z + direction.z];
+            direction.setLength(1.5);
+            direction.y = 1;
+            const bullet = new Bullet(radius, position, spriteSheet);
+            this.world.addBody(bullet.body);
+            this.ts.scene.add(bullet.mesh);
+            this.entities.push(bullet);
+            bullet.body.applyImpulse(direction, bullet.body.position);
+        }
+    
        
         // TODO update camera
         this.ts.camera.position.x = this.hero.mesh.position.x;
@@ -143,7 +181,7 @@ export default class App {
 
 
         // TODO render
-        // this.debugRenderer.update();
+        this.debugRenderer.update();
         this.ts.render(delta);
         this.controller.display();
         requestAnimationFrame((t) => this.update(t));

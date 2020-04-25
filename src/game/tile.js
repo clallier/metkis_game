@@ -1,6 +1,6 @@
 import {
     PlaneGeometry, Texture, MeshBasicMaterial, Mesh,
-    LinearMipmapLinearFilter, NearestFilter
+    LinearMipmapLinearFilter, NearestFilter, MeshPhongMaterial, MeshToonMaterial
 } from "three";
 
 export default class Tile {
@@ -24,9 +24,7 @@ export default class Tile {
             map: texture
         });
         const mesh = new Mesh(geometry, material);
-        mesh.position.x = position[0];
-        mesh.position.y = position[1] - 0.5;
-        mesh.position.z = position[2];
+        mesh.position.set(position[0], position[1] - .5, position[2]);
         mesh.rotation.x = -Math.PI / 2;
 
         return mesh;

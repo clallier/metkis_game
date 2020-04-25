@@ -50519,6 +50519,8 @@ class ThreeScene {
         const context = this.canvas.getContext('webgl2', { alpha: true });
         this.renderer = new WebGLRenderer({ canvas: this.canvas, context });
         this.renderer.shadowMap.enabled = true;
+        this.renderer.shadowMap.type = PCFSoftShadowMap;
+
 
         this.camera = new PerspectiveCamera(75, 2, 0.1, 1000);
         this.camera.position.y = 8;
@@ -50529,15 +50531,13 @@ class ThreeScene {
         this.scene = new Scene();
 
         this.lights = [];
-        const light = new SpotLight(0xffffff, 1);
+        this.lights.push(new SpotLight(0xffffff, 1));
+        this.lights[0].position.set(0, 30, 0);
         // const light = new HemisphereLight(0xffffff, 0xffffff, 0.6);
         // light.color.setHSL(0.8, 1, 1);
         // light.groundColor.setHSL(1, 1, 0.8);
-        light.position.set(0, 50, 0);
-        light.castShadow = true;
-
-        this.lights.push(light);
-        this.scene.add(this.lights[0]);
+        for (let i = 0; i < this.lights.length; i++)
+            this.scene.add(this.lights[i]);
     }
 
     render(delta) {
@@ -50941,7 +50941,7 @@ var level = {
 		"1   11  1",
 		"1  5 1  1",
 		"1       1",
-		"1   3   1",
+		"16  3   1",
 		"1       1",
 		"111111111"
 	]
@@ -64590,21 +64590,21 @@ class Block {
         );
 
         // TODO function 
-        const texture0 = this.createRandomTexture(spriteSheet);
-        const texture1 = this.createRandomTexture(spriteSheet);
+        const texture0 = this.createTexture(spriteSheet, {x: 3, y: 10});
+        const texture1 = this.createTexture(spriteSheet);
+
+        const material0 = new MeshBasicMaterial({ map: texture0 }); 
+        const material1 = new MeshBasicMaterial({ map: texture1 });        
 
         const materials = [];
-        materials.push(new MeshBasicMaterial({map: texture1})); // left
-        materials.push(new MeshBasicMaterial({map: texture1})); // right
-        materials.push(new MeshBasicMaterial({map: texture0})); // top
-        materials.push(new MeshBasicMaterial({map: texture0})); // bottom
-        materials.push(new MeshBasicMaterial({map: texture1})); // back
-        materials.push(new MeshBasicMaterial({map: texture1})); // front
+        materials.push(material1); // left
+        materials.push(material1); // right
+        materials.push(material0); // top
+        materials.push(material0); // bottom
+        materials.push(material1); // back
+        materials.push(material1); // front
         const mesh = new Mesh(geometry, materials);
-        mesh.position.x = position[0];
-        mesh.position.y = position[1];
-        mesh.position.z = position[2];
-
+        mesh.position.set(position[0], position[1], position[2]);
 
         const box_size = new cannon.Vec3(0.5 * size[0], 0.5 * size[2], 0.5 * size[1]); 
         const box = new cannon.Box(box_size);
@@ -64618,12 +64618,11 @@ class Block {
         body.updateMassProperties();
         body.addShape(box);
         
-        mesh.body = body;
         this.body = body;
         this.mesh = mesh;
     }
 
-    createRandomTexture(spriteSheet, options = {}) {
+    createTexture(spriteSheet, options = {}) {
         const x = options.x != null? options.x: ~~(Math.random() * 6) + 2;
         const y = options.y != null? options.y: ~~(Math.random() * 2) + 10;
         const tile = spriteSheet.getTile(x, y);
@@ -64656,9 +64655,7 @@ class Tile {
             map: texture
         });
         const mesh = new Mesh(geometry, material);
-        mesh.position.x = position[0];
-        mesh.position.y = position[1] - 0.5;
-        mesh.position.z = position[2];
+        mesh.position.set(position[0], position[1] - .5, position[2]);
         mesh.rotation.x = -Math.PI / 2;
 
         return mesh;
@@ -64667,7 +64664,7 @@ class Tile {
 
 class Item {
     constructor(size, position, spriteSheet) {
-
+        this.time = 0;
         const tile = spriteSheet.getTile(0, 9);
 
         const texture = new CanvasTexture(tile);
@@ -64678,16 +64675,15 @@ class Item {
         const material = new SpriteMaterial({ map: texture });
         const mesh = new Sprite(material);
         mesh.scale.set(0.8 * size[0], 0.8 * size[1], 1);
-        mesh.position.x = position[0];
-        mesh.position.y = position[1];
-        mesh.position.z = position[2];
-
-        return mesh;
+        mesh.position.set(position[0], position[1], position[2]);
+        this.mesh = mesh;
     }
 }
 
 class Hero {
     constructor(size, position, spriteSheet) {
+        // TODO size and position as Vector3 for all objects + size with default value +rename to base_size
+
         this.frame = 0;
         this.time = 0;
         const canvas = [];
@@ -64706,24 +64702,22 @@ class Hero {
         const material = new SpriteMaterial({ map: this.anim[0] });
         const mesh = new Sprite(material);
         mesh.scale.set(0.8 * size[0], 0.8 * size[1], 1);
-        mesh.position.x = position[0];
-        mesh.position.y = position[1];
-        mesh.position.z = position[2];
+        mesh.position.set(position[0], position[1], position[2]);
 
         const box_size = new cannon.Vec3(0.4 * size[0], 0.4 * size[1], 0.4 * size[2]);
-        const box = new cannon.Box(box_size);
+        const shape = new cannon.Box(box_size);
 
         const body = new cannon.Body({
             mass: 1,
             position: new cannon.Vec3(position[0], position[1], position[2]),
+            fixedRotation: true,
             material: new cannon.Material({
                 friction: 0.5,
                 restitution: 0.2
             })
         });
-        body.addShape(box);
+        body.addShape(shape);
 
-        mesh.body = body;
         this.body = body;
         this.mesh = mesh;
     }
@@ -64766,26 +64760,23 @@ class Hero {
 class Crate {
     constructor(size, position, spriteSheet) {
         const geometry = new BoxGeometry(
-            size[0],
-            size[1],
-            size[2]
+            0.8 * size[0],
+            0.8 * size[1],
+            0.8 * size[2]
         );
-        const tile = spriteSheet.getTile(0, 11);
+        const tile = spriteSheet.getTile(6, 2);
 
         const texture = new Texture(tile);
         texture.minFilter = LinearMipmapLinearFilter;
         texture.magFilter = NearestFilter;
         texture.needsUpdate = true;
 
-        const material = new MeshBasicMaterial({
-            map: texture
+        const material = new MeshToonMaterial({
+            map: texture,
+            shininess: 0.1
         });
         const mesh = new Mesh(geometry, material);
-        mesh.scale.set(0.8 * size[0], 0.8 * size[1], 0.8 * size[2]);
-        mesh.position.x = position[0];
-        mesh.position.y = position[1];
-        mesh.position.z = position[2];
-
+        mesh.position.set(position[0], position[1], position[2]);
 
         const box_size = new cannon.Vec3(0.4 * size[0], 0.4 * size[2], 0.4 * size[1]); 
         const box = new cannon.Box(box_size);
@@ -64796,10 +64787,104 @@ class Crate {
         });
         body.addShape(box);
         
-        mesh.body = body;
         this.body = body;
         this.mesh = mesh;
     }
+}
+
+class Ball {
+    constructor(size, position, spriteSheet) {
+        const geometry = new IcosahedronGeometry(0.4 * size[0], 1);
+        const tile = spriteSheet.getTile(0, 11);
+
+        const texture = new Texture(tile);
+        texture.minFilter = LinearMipmapLinearFilter;
+        texture.magFilter = NearestFilter;
+        texture.needsUpdate = true;
+
+        const material = new MeshToonMaterial({
+            map: texture,
+            shininess: 0.1
+        });
+        const mesh = new Mesh(geometry, material);
+        mesh.position.set(position[0], position[1], position[2]);
+
+        const sphere = new cannon.Sphere(0.4 * size[0]);
+
+        const body = new cannon.Body({
+            mass: 0.01,
+            position: new cannon.Vec3(position[0], position[1], position[2]),
+            material: new cannon.Material({restitution: 0.9})
+        });
+        body.addShape(sphere);
+        
+        this.body = body;
+        this.mesh = mesh;
+    }
+}
+
+class Enemy {
+    constructor(size, position, spriteSheet) {
+        this.time = 0;
+        const tile = spriteSheet.getTile(2, 9);
+
+        const texture = new CanvasTexture(tile);
+        texture.minFilter = LinearMipmapLinearFilter;
+        texture.magFilter = NearestFilter;
+        texture.needsUpdate = true;
+
+        const material = new SpriteMaterial({ map: texture });
+        const mesh = new Sprite(material);
+        mesh.scale.set(0.8 * size[0], 0.8 * size[1], 1);
+        mesh.position.x = position[0];
+        mesh.position.y = position[1];
+        mesh.position.z = position[2];
+
+        const box_size = new cannon.Vec3(0.4 * size[0], 0.4 * size[1], 0.4 * size[2]);
+        const box = new cannon.Box(box_size);
+
+        const body = new cannon.Body({
+            mass: 1,
+            position: new cannon.Vec3(position[0], position[1], position[2])
+        });
+
+        body.addShape(box);
+
+        this.body = body;
+        this.mesh = mesh;
+    }
+}
+
+class Bullet {
+    constructor(base_radius, position, spriteSheet) {
+        this.time = 0;
+        const geometry = new OctahedronGeometry(0.2 * base_radius, 1);
+        const tile = spriteSheet.getTile(0, 11);
+
+        const texture = new Texture(tile);
+        texture.minFilter = LinearMipmapLinearFilter;
+        texture.magFilter = NearestFilter;
+        texture.needsUpdate = true;
+
+        const material = new MeshToonMaterial({
+            map: texture
+        });
+        const mesh = new Mesh(geometry, material);
+        mesh.position.set(position[0], position[1], position[2]);
+
+        const shape = new cannon.Sphere(0.1 * base_radius);
+
+        const body = new cannon.Body({
+            mass: 0.1,
+            position: new cannon.Vec3(position[0], position[1], position[2]),
+            fixedRotation: true
+        });
+        body.addShape(shape);
+
+        this.body = body;
+        this.mesh = mesh;
+    }
+
 }
 
 // from: https://github.com/Aqro/Physics-menu-threejs-cannonjs/blob/master/src/js/utils/CannonDebugRenderer.js
@@ -65041,41 +65126,6 @@ const _scaleMesh = (mesh, shape) => {
     }
 };
 
-class Ball {
-    constructor(size, position, spriteSheet) {
-        const geometry = new IcosahedronGeometry(0.5 * size[0], 1);
-        const tile = spriteSheet.getTile(6, 2);
-
-        const texture = new Texture(tile);
-        texture.minFilter = LinearMipmapLinearFilter;
-        texture.magFilter = NearestFilter;
-        texture.needsUpdate = true;
-
-        const material = new MeshBasicMaterial({
-            map: texture
-        });
-        const mesh = new Mesh(geometry, material);
-        mesh.scale.set(0.8 * size[0], 0.8 * size[1], 0.8 * size[2]);
-        mesh.position.x = position[0];
-        mesh.position.y = position[1];
-        mesh.position.z = position[2];
-
-
-        const sphere = new cannon.Sphere(0.4 * size[0]);
-
-        const body = new cannon.Body({
-            mass: 0.01,
-            position: new cannon.Vec3(position[0], position[1], position[2]),
-            material: new cannon.Material({restitution: 0.9})
-        });
-        body.addShape(sphere);
-        
-        mesh.body = body;
-        this.body = body;
-        this.mesh = mesh;
-    }
-}
-
 class App {
     constructor() {
         new MiniConsole();
@@ -65103,8 +65153,10 @@ class App {
     }
 
     async start() {
-        const spriteSheet = new SpriteSheet('resources/textures/raw_tileset01.png', 8, 15, 8, 8);
-        await spriteSheet.load();
+        // TODO const
+        this.spriteSheet = new SpriteSheet('resources/textures/raw_tileset01.png', 8, 15, 8, 8);
+        await this.spriteSheet.load();
+        const spriteSheet = this.spriteSheet;
 
         const data = constants.level.data;
         const rows = data.length;
@@ -65132,7 +65184,7 @@ class App {
                 }
                 else if (c == 2) {
                     const item = new Item(size, position, spriteSheet);
-                    this.ts.scene.add(item);
+                    this.ts.scene.add(item.mesh);
                 }
                 else if (c == 3) {
                     this.hero = new Hero(size, position, spriteSheet);
@@ -65141,18 +65193,23 @@ class App {
                     this.entities.push(this.hero);
                 }
                 if (c == 4) {
-                    const create = new Crate(size, position, spriteSheet);
-                    this.world.addBody(create.body);
-                    this.ts.scene.add(create.mesh);
-                    this.entities.push(create);
+                    const crate = new Crate(size, position, spriteSheet);
+                    this.world.addBody(crate.body);
+                    this.ts.scene.add(crate.mesh);
+                    this.entities.push(crate);
                 }
                 if (c == 5) {
-                    const create = new Ball(size, position, spriteSheet);
-                    this.world.addBody(create.body);
-                    this.ts.scene.add(create.mesh);
-                    this.entities.push(create);
+                    const ball = new Ball(size, position, spriteSheet);
+                    this.world.addBody(ball.body);
+                    this.ts.scene.add(ball.mesh);
+                    this.entities.push(ball);
                 }
-                
+                if (c == 6) {
+                    this.enemy = new Enemy(size, position, spriteSheet);
+                    this.world.addBody(this.enemy.body);
+                    this.ts.scene.add(this.enemy.mesh);
+                    this.entities.push(this.enemy);
+                }
             }
         }
         const ground = new cannon.Body({
@@ -65192,8 +65249,37 @@ class App {
         }
 
         // force hero rotation
-        this.hero.body.quaternion = new cannon.Quaternion(0, 0, 0, 1);
+        // this.hero.body.quaternion = new CANNON.Quaternion(0, 0, 0, 1);
         this.hero.update(delta);
+
+        // TODO enemy update
+        this.enemy.time += delta;
+    
+        if(this.enemy.time > 0.1) {
+            this.enemy.time = 0;
+            // fire
+            // TODO position, velocity
+            // add to physics
+            // add to render
+            // edit collision
+            // TODO pas sur por le new ou  le create p-e clone une instance
+            // TODO spriteSheet
+            const radius = 1;
+            const enemy_pos = this.enemy.mesh.position.clone();
+            const spriteSheet = this.spriteSheet;
+            const direction = this.hero.mesh.position.clone()
+                .sub(enemy_pos)
+                .normalize();
+            const position = [enemy_pos.x + direction.x, 1, enemy_pos.z + direction.z];
+            direction.setLength(1.5);
+            direction.y = 1;
+            const bullet = new Bullet(radius, position, spriteSheet);
+            this.world.addBody(bullet.body);
+            this.ts.scene.add(bullet.mesh);
+            this.entities.push(bullet);
+            bullet.body.applyImpulse(direction, bullet.body.position);
+        }
+    
        
         // TODO update camera
         this.ts.camera.position.x = this.hero.mesh.position.x;
@@ -65203,7 +65289,7 @@ class App {
 
 
         // TODO render
-        // this.debugRenderer.update();
+        this.debugRenderer.update();
         this.ts.render(delta);
         this.controller.display();
         requestAnimationFrame((t) => this.update(t));

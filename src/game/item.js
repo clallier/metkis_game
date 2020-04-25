@@ -5,7 +5,7 @@ import {
 
 export default class Item {
     constructor(size, position, spriteSheet) {
-
+        this.time = 0
         const tile = spriteSheet.getTile(0, 9);
 
         const texture = new CanvasTexture(tile);
@@ -16,10 +16,7 @@ export default class Item {
         const material = new SpriteMaterial({ map: texture });
         const mesh = new Sprite(material);
         mesh.scale.set(0.8 * size[0], 0.8 * size[1], 1);
-        mesh.position.x = position[0];
-        mesh.position.y = position[1];
-        mesh.position.z = position[2];
-
-        return mesh;
+        mesh.position.set(position[0], position[1], position[2]);
+        this.mesh = mesh;
     }
 }

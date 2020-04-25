@@ -6,6 +6,8 @@ import CANNON from 'cannon';
 
 export default class Hero {
     constructor(size, position, spriteSheet) {
+        // TODO size and position as Vector3 for all objects + size with default value +rename to base_size
+
         this.frame = 0;
         this.time = 0;
         const canvas = []
@@ -24,24 +26,22 @@ export default class Hero {
         const material = new SpriteMaterial({ map: this.anim[0] });
         const mesh = new Sprite(material);
         mesh.scale.set(0.8 * size[0], 0.8 * size[1], 1);
-        mesh.position.x = position[0];
-        mesh.position.y = position[1];
-        mesh.position.z = position[2];
+        mesh.position.set(position[0], position[1], position[2]);
 
         const box_size = new CANNON.Vec3(0.4 * size[0], 0.4 * size[1], 0.4 * size[2]);
-        const box = new CANNON.Box(box_size);
+        const shape = new CANNON.Box(box_size);
 
         const body = new CANNON.Body({
             mass: 1,
             position: new CANNON.Vec3(position[0], position[1], position[2]),
+            fixedRotation: true,
             material: new CANNON.Material({
                 friction: 0.5,
                 restitution: 0.2
             })
         })
-        body.addShape(box)
+        body.addShape(shape)
 
-        mesh.body = body;
         this.body = body;
         this.mesh = mesh;
     }

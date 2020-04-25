@@ -1,5 +1,5 @@
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
-import { Scene, WebGLRenderer, PerspectiveCamera, HemisphereLight, SpotLight } from 'three';
+import { Scene, WebGLRenderer, PerspectiveCamera, HemisphereLight, SpotLight, PCFSoftShadowMap, AmbientLight } from 'three';
 import { WEBGL } from 'three/examples/jsm/WebGL.js';
 
 export default class ThreeScene {
@@ -12,6 +12,8 @@ export default class ThreeScene {
         const context = this.canvas.getContext('webgl2', { alpha: true });
         this.renderer = new WebGLRenderer({ canvas: this.canvas, context });
         this.renderer.shadowMap.enabled = true;
+        this.renderer.shadowMap.type = PCFSoftShadowMap;
+
 
         this.camera = new PerspectiveCamera(75, 2, 0.1, 1000);
         this.camera.position.y = 8;
@@ -22,15 +24,13 @@ export default class ThreeScene {
         this.scene = new Scene();
 
         this.lights = [];
-        const light = new SpotLight(0xffffff, 1);
+        this.lights.push(new SpotLight(0xffffff, 1))
+        this.lights[0].position.set(0, 30, 0);
         // const light = new HemisphereLight(0xffffff, 0xffffff, 0.6);
         // light.color.setHSL(0.8, 1, 1);
         // light.groundColor.setHSL(1, 1, 0.8);
-        light.position.set(0, 50, 0);
-        light.castShadow = true;
-
-        this.lights.push(light);
-        this.scene.add(this.lights[0]);
+        for (let i = 0; i < this.lights.length; i++)
+            this.scene.add(this.lights[i]);
     }
 
     render(delta) {
