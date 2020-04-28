@@ -35,7 +35,6 @@ export default class ThreeScene {
 
     render(delta) {
         this.control.update();
-
         this.renderer.render(this.scene, this.camera);
     }
 

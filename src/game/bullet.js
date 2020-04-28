@@ -4,6 +4,7 @@ import CANNON from 'cannon'
 export default class Bullet {
     constructor(base_radius, position, spriteSheet) {
         this.time = 0
+        this.to_remove = false;
         const geometry = new OctahedronGeometry(0.2 * base_radius, 1);
         const tile = spriteSheet.getTile(0, 11);
 
@@ -27,8 +28,23 @@ export default class Bullet {
         })
         body.addShape(shape);
 
+        body.addEventListener('collide', (e) => this.collide(e))
+
         this.body = body;
         this.mesh = mesh;
+    }
+
+    update(delta) {
+        this.time += delta;
+
+        if(this.time > 1 || this.mesh.position.y < -10) 
+            this.to_remove = true;
+    }
+
+    collide(event) {
+        this.to_remove = true;
+        // console.log(`Collided with body: ${event.body}`);
+        // console.log(`Contact between bodies: ${event.contact}`);
     }
 
 }

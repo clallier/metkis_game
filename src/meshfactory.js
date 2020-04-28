@@ -3,16 +3,15 @@ import {
     LinearMipmapLinearFilter, NearestFilter,
     BoxGeometry, PlaneGeometry, AxesHelper,
     SpriteMaterial, MeshBasicMaterial,
-    Sprite, Mesh, Group
+    Sprite, Mesh, Group, Vector3
 } from 'three';
 
 export default class MeshFactory {
 
-    static createText(text, options) {
+    static createText(position = new Vector3(), text = 'hi', options = {}) {
         // https://threejsfundamentals.org/threejs/lessons/threejs-canvas-textures.html
         // TODO more options
         // TODO canvas size ?
-        options = options || {};
         const fillStyle = options.fillStyle || '#ffffff';
         const strokeStyle = options.strokeStyle || '#000000';
         const fontsize = options.fontsize || 32;
@@ -54,6 +53,7 @@ export default class MeshFactory {
         const material = new SpriteMaterial({ map: texture });
         const sprite = new Sprite(material);
         sprite.scale.set(0.01 * width, 0.01 * height, 1);
+        sprite.position.copy(position);
         return sprite;
     }
 
@@ -92,7 +92,7 @@ export default class MeshFactory {
         return mesh;
     }
 
-    static createAxes() {
+    static createAxes(position = new Vector3()) {
         const group = new Group();
         const axes = new AxesHelper(1);
         group.add(axes);
@@ -108,6 +108,7 @@ export default class MeshFactory {
         const tz = MeshFactory.createText('z');
         tz.position.z = 1;
         group.add(tz);
+        group.position.copy(position);
 
         return group;
     }

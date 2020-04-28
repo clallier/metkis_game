@@ -27,7 +27,12 @@ export default class Enemy {
 
         const body = new CANNON.Body({
             mass: 1,
-            position: new CANNON.Vec3(position[0], position[1], position[2])
+            position: new CANNON.Vec3(position[0], position[1], position[2]),
+            fixedRotation: true,
+            material: new CANNON.Material({
+                friction: 0,
+                restitution: 0.9
+            })
         })
 
         body.addShape(box);
