@@ -1,24 +1,20 @@
 import { Component, TagComponent } from "ecsy";
-import CANNON from 'cannon';
 
-// TODO move ToDelete to tagcomponents
-export class ToDelete extends TagComponent {}
-
+export class CameraTarget extends TagComponent {}
+export class Controllable extends TagComponent {}
 
 export class DeleteAfter extends Component {
     constructor() {
         super();
         // timer
-        this.value = 0;
+        this.seconds = 0;
     }
     
     reset() {
-        this.value = 0;
+        this.seconds = 0;
     }
 }
 
-
-// TODO move to BodyPhysics
 export class CannonBody extends Component {
     constructor() {
         super();
@@ -34,11 +30,27 @@ export class CannonBody extends Component {
 export class ThreeMesh extends Component {
     constructor() {
         super();
-        // body 
+        // mesh 
         this.value = null;
     }
 
     reset() {
         this.value = null;
+    }
+}
+
+export class SpriteAnimation extends Component {
+    constructor() {
+        super();
+        this.reset();
+    }
+    
+    reset() {
+        this.time = 0;
+        this.current_animation = null;
+        this.frame = 0;
+        this.move_left = [];
+        this.move_right = [];
+        this.default = [];
     }
 }

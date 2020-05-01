@@ -1,7 +1,6 @@
 import { System } from "ecsy";
 import { ThreeMesh, CannonBody } from "../components/components";
 
-// TODO add et remove de la scene
 export default class SceneSystem extends System {
     constructor(world, attributes) {
         super(world, attributes);

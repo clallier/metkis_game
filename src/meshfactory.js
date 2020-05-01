@@ -11,7 +11,6 @@ export default class MeshFactory {
     static createText(position = new Vector3(), text = 'hi', options = {}) {
         // https://threejsfundamentals.org/threejs/lessons/threejs-canvas-textures.html
         // TODO more options
-        // TODO canvas size ?
         const fillStyle = options.fillStyle || '#ffffff';
         const strokeStyle = options.strokeStyle || '#000000';
         const fontsize = options.fontsize || 32;
