@@ -1,7 +1,11 @@
 import { Component, TagComponent } from "ecsy";
 
-export class CameraTarget extends TagComponent {}
-export class Controllable extends TagComponent {}
+export class CameraTarget extends TagComponent { }
+export class Controllable extends TagComponent { }
+// TODO damage(hp: 10) component 
+export class Damageable extends TagComponent { }
+export class BadBoy extends TagComponent { }
+export class GoodBoy extends TagComponent { }
 
 export class DeleteAfter extends Component {
     constructor() {
@@ -9,7 +13,7 @@ export class DeleteAfter extends Component {
         // timer
         this.seconds = 0;
     }
-    
+
     reset() {
         this.seconds = 0;
     }
@@ -44,7 +48,7 @@ export class SpriteAnimation extends Component {
         super();
         this.reset();
     }
-    
+
     reset() {
         this.time = 0;
         this.current_animation = null;
@@ -52,5 +56,32 @@ export class SpriteAnimation extends Component {
         this.move_left = [];
         this.move_right = [];
         this.default = [];
+    }
+}
+
+// TODO weapon component 
+export class ShootBullets extends Component {
+    constructor() {
+        super();
+        this.reset();
+    }
+
+    reset() {
+        // in s
+        this.time = 0
+        // in s
+        this.delay = 0.1;
+    }
+}
+
+export class ApplyImpulse extends Component {
+    constructor() {
+        super();
+        this.reset();
+    }
+
+    reset() {
+        this.impulse = null; 
+        this.point = null;
     }
 }

@@ -1,5 +1,5 @@
 import { System } from "ecsy";
-import { CannonBody, Controllable } from "../components/components";
+import { CannonBody, Controllable, ApplyImpulse } from "../components/components";
 import CANNON from 'cannon';
 
 export default class PhysicSystem extends System {
@@ -28,7 +28,7 @@ export default class PhysicSystem extends System {
 
         entities.results.forEach(e => {
             const body = e.getComponent(CannonBody).value;
-            if (body.position.y < -1) {
+            if (body.position.y < -20) {
                 console.log('goodbye!')
                 e.remove()
             }
@@ -41,11 +41,20 @@ export default class PhysicSystem extends System {
             let force = new CANNON.Vec3(dir.x, 0, dir.y)
                 .scale(-0.5);
             body.applyImpulse(force, body.position);
+        })
 
+        
+        // impulses
+        this.queries.impulses.added.forEach(e => {
+            const body = e.getComponent(CannonBody).value;
+            const force = e.getComponent(ApplyImpulse);
+            body.applyImpulse(force.impulse, force.point);
         })
 
         // sim
-        this.cannon_world.step(delta);
+        // TODO loop
+        this.cannon_world.step(delta / 4);
+        this.cannon_world.step(delta / 2);
     }
 
 }
@@ -60,5 +69,11 @@ PhysicSystem.queries = {
     },
     controllables: {
         components: [Controllable, CannonBody]
+    },
+    impulses: {
+        components: [ApplyImpulse, CannonBody],
+        listen: {
+            added: true
+        }
     }
 }

@@ -1,5 +1,5 @@
 import { System } from "ecsy";
-import { SpriteAnimation, ThreeMesh, CannonBody } from "../components/components";
+import { SpriteAnimation, ThreeMesh, CannonBody} from "../components/components";
 
 export default class SpriteAnimationSystem extends System {
     constructor(world, attributes) {

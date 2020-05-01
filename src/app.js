@@ -15,6 +15,7 @@ import TimerSystem from './systems/timersystem';
 import EntityFactory from './game/entityfactory';
 import CameraSystem from './systems/camerasystem';
 import SpriteAnimationSystem from './systems/spriteanimationsystem';
+import WeaponSystem from './systems/weaponsystem';
 
 
 export default class App {
@@ -30,23 +31,22 @@ export default class App {
         this.ecsy = new World()
             .registerSystem(TimerSystem)
             .registerSystem(SpriteAnimationSystem)
+            .registerSystem(WeaponSystem)
             .registerSystem(CameraSystem, { camera: this.ts.camera, control: this.ts.control })
             .registerSystem(PhysicSystem, { cannon_world: this.world, controller: this.controller })
             .registerSystem(SceneSystem, { scene: this.ts.scene })
 
         this.spriteSheet = new SpriteSheet('resources/textures/raw_tileset01.png', 8, 15, 8, 8);
-        this.factory = new EntityFactory(this.ecsy, this.spriteSheet);
+        this.ecsy.factory = new EntityFactory(this.ecsy, this.spriteSheet);
 
         window.addEventListener('resize', () => this.resize(), false);
         this.resize()
 
         // axes
-        this.factory.createAxes();
+        this.ecsy.factory.createAxes();
 
         // text
-        this.factory.createDemoText();
-
-
+        this.ecsy.factory.createDemoText();
     }
 
     async start() {
@@ -62,11 +62,11 @@ export default class App {
             for (let r = 0; r < cols; r++) {
                 const type = data[l][r];
                 const position = new Vector3(-r + x_offset, 1, -l + z_offset);
-                this.factory.createTile(position);
-                this.factory.create(type, position);
+                // this.ecsy.factory.createTile(position);
+                this.ecsy.factory.create(type, position);
             }
         }
-        this.factory.createGround(
+        this.ecsy.factory.createGround(
             new Vector3(0, -.5, 0.5),
             new Vector3(cols, 1, rows)
         )

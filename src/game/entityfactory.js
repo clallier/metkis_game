@@ -2,13 +2,14 @@ import MeshFactory from '../meshfactory';
 import CANNON from 'cannon';
 import {
     Vector3, PlaneGeometry, MeshBasicMaterial, BoxGeometry,
-    CanvasTexture, SpriteMaterial, Sprite, MeshToonMaterial,
+    SpriteMaterial, Sprite, MeshToonMaterial,
     IcosahedronGeometry, OctahedronGeometry, Texture,
     LinearMipmapLinearFilter, NearestFilter, Mesh, RepeatWrapping
 } from "three";
 
 import {
-    ThreeMesh, CannonBody, DeleteAfter, CameraTarget, Controllable, SpriteAnimation
+    ThreeMesh, CannonBody, DeleteAfter, CameraTarget, Controllable,
+    BadBoy, GoodBoy, SpriteAnimation, Damageable, ShootBullets, ApplyImpulse
 } from "../components/components";
 
 
@@ -24,7 +25,6 @@ export default class EntityFactory {
         texture.minFilter = LinearMipmapLinearFilter;
         texture.magFilter = NearestFilter;
         texture.needsUpdate = true;
-
         // repeat texture
         let r_x = options.repeat_x;
         let r_y = options.repeat_y;
@@ -183,6 +183,8 @@ export default class EntityFactory {
                 move_right,
                 current_animation
             })
+            .addComponent(GoodBoy)
+            .addComponent(ShootBullets)
     }
 
     createCrate(position = new Vector3(), size = new Vector3(1, 1, 1)) {
@@ -275,15 +277,15 @@ export default class EntityFactory {
         this.ecsy.createEntity()
             .addComponent(ThreeMesh, { value: mesh })
             .addComponent(CannonBody, { value: body })
+            .addComponent(BadBoy)
+            .addComponent(Damageable)
     }
 
-    createBullet(position = new Vector3(), size = new Vector3(1, 1, 1), impulse = new Vector3()) {
-        // TODO : sprite
-        const geometry = new OctahedronGeometry(0.2 * size.x, 1);
-        const material = new MeshToonMaterial({
-            map: this.createTexture(0, 11)
+    createBullet(position = new Vector3(), impulse = new Vector3(), size = new Vector3(1, 1, 1)) {
+        const material = new SpriteMaterial({
+            map: this.createTexture(4, 3)
         });
-        const mesh = new Mesh(geometry, material);
+        const mesh = new Sprite(material);
         mesh.position.copy(position);
 
         const shape = new CANNON.Sphere(0.1 * size.x);
@@ -293,15 +295,17 @@ export default class EntityFactory {
             fixedRotation: true
         })
         body.addShape(shape);
-        // TODO applyImpulse component ?
-        body.applyImpulse(direction, body.position);
-
         // TODO add it in physicssystem + component
-        body.addEventListener('collide', (e) => this.collide(e))
+        // TODO : damages !
+        // body.addEventListener('collide', (e) => this.collide(e))
 
         this.ecsy.createEntity()
             .addComponent(DeleteAfter, { seconds: 1 })
             .addComponent(ThreeMesh, { value: mesh })
             .addComponent(CannonBody, { value: body })
+            .addComponent(ApplyImpulse, {
+                impulse: impulse, 
+                point: body.position
+            })
     }
 } 

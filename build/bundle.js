@@ -50542,7 +50542,6 @@ class ThreeScene {
 
     render(delta) {
         this.control.update();
-
         this.renderer.render(this.scene, this.camera);
     }
 
@@ -50556,114 +50555,6 @@ class ThreeScene {
             this.renderer.setSize(width, height, false);
         }
     }
-}
-
-class MeshFactory {
-
-    static createText(text, options) {
-        // https://threejsfundamentals.org/threejs/lessons/threejs-canvas-textures.html
-        // TODO more options
-        // TODO canvas size ?
-        options = options || {};
-        const fillStyle = options.fillStyle || '#ffffff';
-        const strokeStyle = options.strokeStyle || '#000000';
-        const fontsize = options.fontsize || 32;
-        const fontface = options.fontface || 'monospace';
-        const lineWidth = ~~(fontsize / 4);
-        const doubleBorderSize = lineWidth * 2;
-        const font = `bold ${fontsize}px ${fontface}`;
-        // ctx 
-        const ctx = document.createElement('canvas').getContext('2d');
-        ctx.font = font;
-        ctx.lineWidth = lineWidth;
-        ctx.strokeStyle = strokeStyle;
-        ctx.fillStyle = fillStyle;
-
-        // size
-        const width = ~~ctx.measureText(text).width + doubleBorderSize + 1;
-        const height = fontsize + doubleBorderSize;
-        ctx.canvas.width = width;
-        ctx.canvas.height = height;
-        ctx.canvas.style.width = width + "px";
-        ctx.canvas.style.height = height + "px";
-
-        // need to set font again after resizing canvas
-        ctx.font = font;
-        ctx.lineWidth = lineWidth;
-        ctx.strokeStyle = strokeStyle;
-        ctx.fillStyle = fillStyle;
-        ctx.textBaseline = 'top';
-
-        // write text
-        ctx.strokeText(text, lineWidth, lineWidth);
-        ctx.fillText(text, lineWidth, lineWidth);
-
-        const texture = new CanvasTexture(ctx.canvas);
-        texture.minFilter = LinearMipmapLinearFilter;
-        texture.magFilter = NearestFilter;
-        texture.needsUpdate = true;
-
-        const material = new SpriteMaterial({ map: texture });
-        const sprite = new Sprite(material);
-        sprite.scale.set(0.01 * width, 0.01 * height, 1);
-        return sprite;
-    }
-
-    static createCube(size, position, color = 0x00ffff) {
-        const geometry = new BoxGeometry(
-            size[0],
-            size[1],
-            size[2]
-        );
-
-        const material = new MeshBasicMaterial({
-            color: color
-        });
-
-        const mesh = new Mesh(geometry, material);
-        mesh.position.x = position[0];
-        mesh.position.y = position[1];
-        mesh.position.z = position[2];
-        return mesh;
-    }
-
-    static createTile(size = new Vector2(1, 1), color = 0xff00ff) {
-        const geometry = new PlaneGeometry(
-            size.x,
-            size.y,
-            1, 1);
-
-        const material = new MeshBasicMaterial({
-            color: color
-        });
-
-        const mesh = new Mesh(geometry, material);
-        mesh.position.y = 0.5;
-        mesh.rotation.x = -Math.PI / 2;
-
-        return mesh;
-    }
-
-    static createAxes() {
-        const group = new Group();
-        const axes = new AxesHelper(1);
-        group.add(axes);
-
-        const tx = MeshFactory.createText('x');
-        tx.position.x = 1;
-        group.add(tx);
-
-        const ty = MeshFactory.createText('y');
-        ty.position.y = 1;
-        group.add(ty);
-
-        const tz = MeshFactory.createText('z');
-        tz.position.z = 1;
-        group.add(tz);
-
-        return group;
-    }
-
 }
 
 class SpriteSheet {
@@ -50935,13 +50826,13 @@ var level = {
 		"1       1",
 		"1       1",
 		"111444111",
-		"11      1",
+		"116     1",
 		"1       1",
 		"1   1   1",
 		"1   11  1",
 		"1  5 1  1",
 		"1       1",
-		"16  3   1",
+		"1  3    1",
 		"1       1",
 		"111111111"
 	]
@@ -64581,312 +64472,6 @@ World.prototype.clearForces = function(){
 });
 });
 
-class Block {
-    constructor(size, position, spriteSheet) {
-        const geometry = new BoxGeometry(
-            size[0],
-            size[1],
-            size[2]
-        );
-
-        // TODO function 
-        const texture0 = this.createTexture(spriteSheet, {x: 3, y: 10});
-        const texture1 = this.createTexture(spriteSheet);
-
-        const material0 = new MeshBasicMaterial({ map: texture0 }); 
-        const material1 = new MeshBasicMaterial({ map: texture1 });        
-
-        const materials = [];
-        materials.push(material1); // left
-        materials.push(material1); // right
-        materials.push(material0); // top
-        materials.push(material0); // bottom
-        materials.push(material1); // back
-        materials.push(material1); // front
-        const mesh = new Mesh(geometry, materials);
-        mesh.position.set(position[0], position[1], position[2]);
-
-        const box_size = new cannon.Vec3(0.5 * size[0], 0.5 * size[2], 0.5 * size[1]); 
-        const box = new cannon.Box(box_size);
-
-        const body = new cannon.Body({
-            type: cannon.Body.STATIC,
-            mass: 0,
-            position: new cannon.Vec3(position[0], position[1], position[2]),
-            material: new cannon.Material({restitution: 0.9})
-        });
-        body.updateMassProperties();
-        body.addShape(box);
-        
-        this.body = body;
-        this.mesh = mesh;
-    }
-
-    createTexture(spriteSheet, options = {}) {
-        const x = options.x != null? options.x: ~~(Math.random() * 6) + 2;
-        const y = options.y != null? options.y: ~~(Math.random() * 2) + 10;
-        const tile = spriteSheet.getTile(x, y);
-        const texture = new Texture(tile);
-        texture.minFilter = LinearMipmapLinearFilter;
-        texture.magFilter = NearestFilter;
-        texture.needsUpdate = true;
-        return texture;
-    }
-}
-
-class Tile {
-    constructor(size, position, spriteSheet) {
-        const geometry = new PlaneGeometry(
-            size[0],
-            size[1], 
-            1, 1
-        );
-
-        const x = ~~(Math.random() * 2) + 4;
-        const y = 14;
-        const tile = spriteSheet.getTile(x, y);
-
-        const texture = new Texture(tile);
-        texture.minFilter = LinearMipmapLinearFilter;
-        texture.magFilter = NearestFilter;
-        texture.needsUpdate = true;
-
-        const material = new MeshBasicMaterial({
-            map: texture
-        });
-        const mesh = new Mesh(geometry, material);
-        mesh.position.set(position[0], position[1] - .5, position[2]);
-        mesh.rotation.x = -Math.PI / 2;
-
-        return mesh;
-    }
-}
-
-class Item {
-    constructor(size, position, spriteSheet) {
-        this.time = 0;
-        const tile = spriteSheet.getTile(0, 9);
-
-        const texture = new CanvasTexture(tile);
-        texture.minFilter = LinearMipmapLinearFilter;
-        texture.magFilter = NearestFilter;
-        texture.needsUpdate = true;
-
-        const material = new SpriteMaterial({ map: texture });
-        const mesh = new Sprite(material);
-        mesh.scale.set(0.8 * size[0], 0.8 * size[1], 1);
-        mesh.position.set(position[0], position[1], position[2]);
-        this.mesh = mesh;
-    }
-}
-
-class Hero {
-    constructor(size, position, spriteSheet) {
-        // TODO size and position as Vector3 for all objects + size with default value +rename to base_size
-
-        this.frame = 0;
-        this.time = 0;
-        const canvas = [];
-        canvas.push(spriteSheet.getTile(0, 8));
-        canvas.push(spriteSheet.getTile(7, 7));
-        
-        // TODO: animator
-        this.anim_right = [];
-        this.anim_right.push(this.createTexture(canvas[0]));
-        this.anim_right.push(this.createTexture(canvas[1]));
-        this.anim_left = [];
-        this.anim_left.push(this.createTexture(canvas[0], {repeat_x:-1}));
-        this.anim_left.push(this.createTexture(canvas[1], {repeat_x:-1}));
-        this.anim = this.anim_left;
-
-        const material = new SpriteMaterial({ map: this.anim[0] });
-        const mesh = new Sprite(material);
-        mesh.scale.set(0.8 * size[0], 0.8 * size[1], 1);
-        mesh.position.set(position[0], position[1], position[2]);
-
-        const box_size = new cannon.Vec3(0.4 * size[0], 0.4 * size[1], 0.4 * size[2]);
-        const shape = new cannon.Box(box_size);
-
-        const body = new cannon.Body({
-            mass: 1,
-            position: new cannon.Vec3(position[0], position[1], position[2]),
-            fixedRotation: true,
-            material: new cannon.Material({
-                friction: 0.5,
-                restitution: 0.2
-            })
-        });
-        body.addShape(shape);
-
-        this.body = body;
-        this.mesh = mesh;
-    }
-
-    createTexture(canvas, options = {}) {
-        const repeat_x = options.repeat_x != null? options.repeat_x: 1;
-        const repeat_y = options.repeat_y != null? options.repeat_y: 1;
-        const texture = new CanvasTexture(canvas);
-        texture.minFilter = LinearMipmapLinearFilter;
-        texture.magFilter = NearestFilter;
-        texture.wrapS = texture.wrapT = RepeatWrapping;
-        texture.repeat.set(repeat_x, repeat_y); 
-        texture.needsUpdate = true;
-        return texture;
-    }
-
-    update(delta) {
-        // TODO
-        this.time += delta;
-        if(this.body.velocity.x < -0.01) {
-            this.anim = this.anim_right;
-        }
-        else if(this.body.velocity.x > 0.01) {
-            this.anim = this.anim_left;
-        }
-
-        // TODO getFrame, changeFrame ?
-        if (this.time > 1) {
-            this.frame += 1;
-            if (this.frame > 1) this.frame = 0;
-            this.mesh.material.map = this.anim[this.frame];
-            this.mesh.material.map.needsUpdate = true;
-            this.mesh.material.needsUpdate = true;
-            this.time = 0;
-        }
-        
-    }
-}
-
-class Crate {
-    constructor(size, position, spriteSheet) {
-        const geometry = new BoxGeometry(
-            0.8 * size[0],
-            0.8 * size[1],
-            0.8 * size[2]
-        );
-        const tile = spriteSheet.getTile(6, 2);
-
-        const texture = new Texture(tile);
-        texture.minFilter = LinearMipmapLinearFilter;
-        texture.magFilter = NearestFilter;
-        texture.needsUpdate = true;
-
-        const material = new MeshToonMaterial({
-            map: texture,
-            shininess: 0.1
-        });
-        const mesh = new Mesh(geometry, material);
-        mesh.position.set(position[0], position[1], position[2]);
-
-        const box_size = new cannon.Vec3(0.4 * size[0], 0.4 * size[2], 0.4 * size[1]); 
-        const box = new cannon.Box(box_size);
-
-        const body = new cannon.Body({
-            mass: 0.01,
-            position: new cannon.Vec3(position[0], position[1], position[2])
-        });
-        body.addShape(box);
-        
-        this.body = body;
-        this.mesh = mesh;
-    }
-}
-
-class Ball {
-    constructor(size, position, spriteSheet) {
-        const geometry = new IcosahedronGeometry(0.4 * size[0], 1);
-        const tile = spriteSheet.getTile(0, 11);
-
-        const texture = new Texture(tile);
-        texture.minFilter = LinearMipmapLinearFilter;
-        texture.magFilter = NearestFilter;
-        texture.needsUpdate = true;
-
-        const material = new MeshToonMaterial({
-            map: texture,
-            shininess: 0.1
-        });
-        const mesh = new Mesh(geometry, material);
-        mesh.position.set(position[0], position[1], position[2]);
-
-        const sphere = new cannon.Sphere(0.4 * size[0]);
-
-        const body = new cannon.Body({
-            mass: 0.01,
-            position: new cannon.Vec3(position[0], position[1], position[2]),
-            material: new cannon.Material({restitution: 0.9})
-        });
-        body.addShape(sphere);
-        
-        this.body = body;
-        this.mesh = mesh;
-    }
-}
-
-class Enemy {
-    constructor(size, position, spriteSheet) {
-        this.time = 0;
-        const tile = spriteSheet.getTile(2, 9);
-
-        const texture = new CanvasTexture(tile);
-        texture.minFilter = LinearMipmapLinearFilter;
-        texture.magFilter = NearestFilter;
-        texture.needsUpdate = true;
-
-        const material = new SpriteMaterial({ map: texture });
-        const mesh = new Sprite(material);
-        mesh.scale.set(0.8 * size[0], 0.8 * size[1], 1);
-        mesh.position.x = position[0];
-        mesh.position.y = position[1];
-        mesh.position.z = position[2];
-
-        const box_size = new cannon.Vec3(0.4 * size[0], 0.4 * size[1], 0.4 * size[2]);
-        const box = new cannon.Box(box_size);
-
-        const body = new cannon.Body({
-            mass: 1,
-            position: new cannon.Vec3(position[0], position[1], position[2])
-        });
-
-        body.addShape(box);
-
-        this.body = body;
-        this.mesh = mesh;
-    }
-}
-
-class Bullet {
-    constructor(base_radius, position, spriteSheet) {
-        this.time = 0;
-        const geometry = new OctahedronGeometry(0.2 * base_radius, 1);
-        const tile = spriteSheet.getTile(0, 11);
-
-        const texture = new Texture(tile);
-        texture.minFilter = LinearMipmapLinearFilter;
-        texture.magFilter = NearestFilter;
-        texture.needsUpdate = true;
-
-        const material = new MeshToonMaterial({
-            map: texture
-        });
-        const mesh = new Mesh(geometry, material);
-        mesh.position.set(position[0], position[1], position[2]);
-
-        const shape = new cannon.Sphere(0.1 * base_radius);
-
-        const body = new cannon.Body({
-            mass: 0.1,
-            position: new cannon.Vec3(position[0], position[1], position[2]),
-            fixedRotation: true
-        });
-        body.addShape(shape);
-
-        this.body = body;
-        this.mesh = mesh;
-    }
-
-}
-
 // from: https://github.com/Aqro/Physics-menu-threejs-cannonjs/blob/master/src/js/utils/CannonDebugRenderer.js
 
 /**
@@ -65126,6 +64711,2394 @@ const _scaleMesh = (mesh, shape) => {
     }
 };
 
+class SystemManager {
+  constructor(world) {
+    this._systems = [];
+    this._executeSystems = []; // Systems that have `execute` method
+    this.world = world;
+    this.lastExecutedSystem = null;
+  }
+
+  registerSystem(System, attributes) {
+    if (
+      this._systems.find(s => s.constructor.name === System.name) !== undefined
+    ) {
+      console.warn(`System '${System.name}' already registered.`);
+      return this;
+    }
+
+    var system = new System(this.world, attributes);
+    if (system.init) system.init();
+    system.order = this._systems.length;
+    this._systems.push(system);
+    if (system.execute) {
+      this._executeSystems.push(system);
+      this.sortSystems();
+    }
+    return this;
+  }
+
+  sortSystems() {
+    this._executeSystems.sort((a, b) => {
+      return a.priority - b.priority || a.order - b.order;
+    });
+  }
+
+  getSystem(System) {
+    return this._systems.find(s => s instanceof System);
+  }
+
+  getSystems() {
+    return this._systems;
+  }
+
+  removeSystem(System) {
+    var index = this._systems.indexOf(System);
+    if (!~index) return;
+
+    this._systems.splice(index, 1);
+  }
+
+  executeSystem(system, delta, time) {
+    if (system.initialized) {
+      if (system.canExecute()) {
+        let startTime = performance.now();
+        system.execute(delta, time);
+        system.executeTime = performance.now() - startTime;
+        this.lastExecutedSystem = system;
+        system.clearEvents();
+      }
+    }
+  }
+
+  stop() {
+    this._executeSystems.forEach(system => system.stop());
+  }
+
+  execute(delta, time, forcePlay) {
+    this._executeSystems.forEach(
+      system =>
+        (forcePlay || system.enabled) && this.executeSystem(system, delta, time)
+    );
+  }
+
+  stats() {
+    var stats = {
+      numSystems: this._systems.length,
+      systems: {}
+    };
+
+    for (var i = 0; i < this._systems.length; i++) {
+      var system = this._systems[i];
+      var systemStats = (stats.systems[system.constructor.name] = {
+        queries: {}
+      });
+      for (var name in system.ctx) {
+        systemStats.queries[name] = system.ctx[name].stats();
+      }
+    }
+
+    return stats;
+  }
+}
+
+/**
+ * @private
+ * @class EventDispatcher
+ */
+class EventDispatcher$1 {
+  constructor() {
+    this._listeners = {};
+    this.stats = {
+      fired: 0,
+      handled: 0
+    };
+  }
+
+  /**
+   * Add an event listener
+   * @param {String} eventName Name of the event to listen
+   * @param {Function} listener Callback to trigger when the event is fired
+   */
+  addEventListener(eventName, listener) {
+    let listeners = this._listeners;
+    if (listeners[eventName] === undefined) {
+      listeners[eventName] = [];
+    }
+
+    if (listeners[eventName].indexOf(listener) === -1) {
+      listeners[eventName].push(listener);
+    }
+  }
+
+  /**
+   * Check if an event listener is already added to the list of listeners
+   * @param {String} eventName Name of the event to check
+   * @param {Function} listener Callback for the specified event
+   */
+  hasEventListener(eventName, listener) {
+    return (
+      this._listeners[eventName] !== undefined &&
+      this._listeners[eventName].indexOf(listener) !== -1
+    );
+  }
+
+  /**
+   * Remove an event listener
+   * @param {String} eventName Name of the event to remove
+   * @param {Function} listener Callback for the specified event
+   */
+  removeEventListener(eventName, listener) {
+    var listenerArray = this._listeners[eventName];
+    if (listenerArray !== undefined) {
+      var index = listenerArray.indexOf(listener);
+      if (index !== -1) {
+        listenerArray.splice(index, 1);
+      }
+    }
+  }
+
+  /**
+   * Dispatch an event
+   * @param {String} eventName Name of the event to dispatch
+   * @param {Entity} entity (Optional) Entity to emit
+   * @param {Component} component
+   */
+  dispatchEvent(eventName, entity, component) {
+    this.stats.fired++;
+
+    var listenerArray = this._listeners[eventName];
+    if (listenerArray !== undefined) {
+      var array = listenerArray.slice(0);
+
+      for (var i = 0; i < array.length; i++) {
+        array[i].call(this, entity, component);
+      }
+    }
+  }
+
+  /**
+   * Reset stats counters
+   */
+  resetCounters() {
+    this.stats.fired = this.stats.handled = 0;
+  }
+}
+
+/**
+ * Return the name of a component
+ * @param {Component} Component
+ * @private
+ */
+function getName(Component) {
+  return Component.name;
+}
+
+/**
+ * Return a valid property name for the Component
+ * @param {Component} Component
+ * @private
+ */
+function componentPropertyName(Component) {
+  return getName(Component);
+}
+
+/**
+ * Get a key from a list of components
+ * @param {Array(Component)} Components Array of components to generate the key
+ * @private
+ */
+function queryKey(Components) {
+  var names = [];
+  for (var n = 0; n < Components.length; n++) {
+    var T = Components[n];
+    if (typeof T === "object") {
+      var operator = T.operator === "not" ? "!" : T.operator;
+      names.push(operator + getName(T.Component));
+    } else {
+      names.push(getName(T));
+    }
+  }
+
+  return names.sort().join("-");
+}
+
+class Query {
+  /**
+   * @param {Array(Component)} Components List of types of components to query
+   */
+  constructor(Components, manager) {
+    this.Components = [];
+    this.NotComponents = [];
+
+    Components.forEach(component => {
+      if (typeof component === "object") {
+        this.NotComponents.push(component.Component);
+      } else {
+        this.Components.push(component);
+      }
+    });
+
+    if (this.Components.length === 0) {
+      throw new Error("Can't create a query without components");
+    }
+
+    this.entities = [];
+
+    this.eventDispatcher = new EventDispatcher$1();
+
+    // This query is being used by a reactive system
+    this.reactive = false;
+
+    this.key = queryKey(Components);
+
+    // Fill the query with the existing entities
+    for (var i = 0; i < manager._entities.length; i++) {
+      var entity = manager._entities[i];
+      if (this.match(entity)) {
+        // @todo ??? this.addEntity(entity); => preventing the event to be generated
+        entity.queries.push(this);
+        this.entities.push(entity);
+      }
+    }
+  }
+
+  /**
+   * Add entity to this query
+   * @param {Entity} entity
+   */
+  addEntity(entity) {
+    entity.queries.push(this);
+    this.entities.push(entity);
+
+    this.eventDispatcher.dispatchEvent(Query.prototype.ENTITY_ADDED, entity);
+  }
+
+  /**
+   * Remove entity from this query
+   * @param {Entity} entity
+   */
+  removeEntity(entity) {
+    let index = this.entities.indexOf(entity);
+    if (~index) {
+      this.entities.splice(index, 1);
+
+      index = entity.queries.indexOf(this);
+      entity.queries.splice(index, 1);
+
+      this.eventDispatcher.dispatchEvent(
+        Query.prototype.ENTITY_REMOVED,
+        entity
+      );
+    }
+  }
+
+  match(entity) {
+    return (
+      entity.hasAllComponents(this.Components) &&
+      !entity.hasAnyComponents(this.NotComponents)
+    );
+  }
+
+  toJSON() {
+    return {
+      key: this.key,
+      reactive: this.reactive,
+      components: {
+        included: this.Components.map(C => C.name),
+        not: this.NotComponents.map(C => C.name)
+      },
+      numEntities: this.entities.length
+    };
+  }
+
+  /**
+   * Return stats for this query
+   */
+  stats() {
+    return {
+      numComponents: this.Components.length,
+      numEntities: this.entities.length
+    };
+  }
+}
+
+Query.prototype.ENTITY_ADDED = "Query#ENTITY_ADDED";
+Query.prototype.ENTITY_REMOVED = "Query#ENTITY_REMOVED";
+Query.prototype.COMPONENT_CHANGED = "Query#COMPONENT_CHANGED";
+
+var nextId = 0;
+
+class Entity {
+  constructor(world) {
+    this._world = world || null;
+
+    // Unique ID for this entity
+    this.id = nextId++;
+
+    // List of components types the entity has
+    this._ComponentTypes = [];
+
+    // Instance of the components
+    this._components = {};
+
+    this._componentsToRemove = {};
+
+    // Queries where the entity is added
+    this.queries = [];
+
+    // Used for deferred removal
+    this._ComponentTypesToRemove = [];
+
+    this.alive = false;
+  }
+
+  // COMPONENTS
+
+  getComponent(Component, includeRemoved) {
+    var component = this._components[Component.name];
+
+    if (!component && includeRemoved === true) {
+      component = this._componentsToRemove[Component.name];
+    }
+
+    return  component;
+  }
+
+  getRemovedComponent(Component) {
+    return this._componentsToRemove[Component.name];
+  }
+
+  getComponents() {
+    return this._components;
+  }
+
+  getComponentsToRemove() {
+    return this._componentsToRemove;
+  }
+
+  getComponentTypes() {
+    return this._ComponentTypes;
+  }
+
+  getMutableComponent(Component) {
+    var component = this._components[Component.name];
+    for (var i = 0; i < this.queries.length; i++) {
+      var query = this.queries[i];
+      // @todo accelerate this check. Maybe having query._Components as an object
+      if (query.reactive && query.Components.indexOf(Component) !== -1) {
+        query.eventDispatcher.dispatchEvent(
+          Query.prototype.COMPONENT_CHANGED,
+          this,
+          component
+        );
+      }
+    }
+    return component;
+  }
+
+  addComponent(Component, values) {
+    this._world.entityAddComponent(this, Component, values);
+    return this;
+  }
+
+  removeComponent(Component, forceRemove) {
+    this._world.entityRemoveComponent(this, Component, forceRemove);
+    return this;
+  }
+
+  hasComponent(Component, includeRemoved) {
+    return (
+      !!~this._ComponentTypes.indexOf(Component) ||
+      (includeRemoved === true && this.hasRemovedComponent(Component))
+    );
+  }
+
+  hasRemovedComponent(Component) {
+    return !!~this._ComponentTypesToRemove.indexOf(Component);
+  }
+
+  hasAllComponents(Components) {
+    for (var i = 0; i < Components.length; i++) {
+      if (!this.hasComponent(Components[i])) return false;
+    }
+    return true;
+  }
+
+  hasAnyComponents(Components) {
+    for (var i = 0; i < Components.length; i++) {
+      if (this.hasComponent(Components[i])) return true;
+    }
+    return false;
+  }
+
+  removeAllComponents(forceRemove) {
+    return this._world.entityRemoveAllComponents(this, forceRemove);
+  }
+
+  // EXTRAS
+
+  // Initialize the entity. To be used when returning an entity to the pool
+  reset() {
+    this.id = nextId++;
+    this._world = null;
+    this._ComponentTypes.length = 0;
+    this.queries.length = 0;
+    this._components = {};
+  }
+
+  remove(forceRemove) {
+    return this._world.removeEntity(this, forceRemove);
+  }
+}
+
+class ObjectPool {
+  // @todo Add initial size
+  constructor(T, initialSize) {
+    this.freeList = [];
+    this.count = 0;
+    this.T = T;
+    this.isObjectPool = true;
+
+    var extraArgs = null;
+    if (arguments.length > 1) {
+      extraArgs = Array.prototype.slice.call(arguments);
+      extraArgs.shift();
+    }
+
+    this.createElement = extraArgs
+      ? () => {
+          return new T(...extraArgs);
+        }
+      : () => {
+          return new T();
+        };
+
+    if (typeof initialSize !== "undefined") {
+      this.expand(initialSize);
+    }
+  }
+
+  aquire() {
+    // Grow the list by 20%ish if we're out
+    if (this.freeList.length <= 0) {
+      this.expand(Math.round(this.count * 0.2) + 1);
+    }
+
+    var item = this.freeList.pop();
+
+    return item;
+  }
+
+  release(item) {
+    item.reset();
+    this.freeList.push(item);
+  }
+
+  expand(count) {
+    for (var n = 0; n < count; n++) {
+      this.freeList.push(this.createElement());
+    }
+    this.count += count;
+  }
+
+  totalSize() {
+    return this.count;
+  }
+
+  totalFree() {
+    return this.freeList.length;
+  }
+
+  totalUsed() {
+    return this.count - this.freeList.length;
+  }
+}
+
+/**
+ * @private
+ * @class QueryManager
+ */
+class QueryManager {
+  constructor(world) {
+    this._world = world;
+
+    // Queries indexed by a unique identifier for the components it has
+    this._queries = {};
+  }
+
+  onEntityRemoved(entity) {
+    for (var queryName in this._queries) {
+      var query = this._queries[queryName];
+      if (entity.queries.indexOf(query) !== -1) {
+        query.removeEntity(entity);
+      }
+    }
+  }
+
+  /**
+   * Callback when a component is added to an entity
+   * @param {Entity} entity Entity that just got the new component
+   * @param {Component} Component Component added to the entity
+   */
+  onEntityComponentAdded(entity, Component) {
+    // @todo Use bitmask for checking components?
+
+    // Check each indexed query to see if we need to add this entity to the list
+    for (var queryName in this._queries) {
+      var query = this._queries[queryName];
+
+      if (
+        !!~query.NotComponents.indexOf(Component) &&
+        ~query.entities.indexOf(entity)
+      ) {
+        query.removeEntity(entity);
+        continue;
+      }
+
+      // Add the entity only if:
+      // Component is in the query
+      // and Entity has ALL the components of the query
+      // and Entity is not already in the query
+      if (
+        !~query.Components.indexOf(Component) ||
+        !query.match(entity) ||
+        ~query.entities.indexOf(entity)
+      )
+        continue;
+
+      query.addEntity(entity);
+    }
+  }
+
+  /**
+   * Callback when a component is removed from an entity
+   * @param {Entity} entity Entity to remove the component from
+   * @param {Component} Component Component to remove from the entity
+   */
+  onEntityComponentRemoved(entity, Component) {
+    for (var queryName in this._queries) {
+      var query = this._queries[queryName];
+
+      if (
+        !!~query.NotComponents.indexOf(Component) &&
+        !~query.entities.indexOf(entity) &&
+        query.match(entity)
+      ) {
+        query.addEntity(entity);
+        continue;
+      }
+
+      if (
+        !!~query.Components.indexOf(Component) &&
+        !!~query.entities.indexOf(entity) &&
+        !query.match(entity)
+      ) {
+        query.removeEntity(entity);
+        continue;
+      }
+    }
+  }
+
+  /**
+   * Get a query for the specified components
+   * @param {Component} Components Components that the query should have
+   */
+  getQuery(Components) {
+    var key = queryKey(Components);
+    var query = this._queries[key];
+    if (!query) {
+      this._queries[key] = query = new Query(Components, this._world);
+    }
+    return query;
+  }
+
+  /**
+   * Return some stats from this class
+   */
+  stats() {
+    var stats = {};
+    for (var queryName in this._queries) {
+      stats[queryName] = this._queries[queryName].stats();
+    }
+    return stats;
+  }
+}
+
+class SystemStateComponent {}
+
+SystemStateComponent.isSystemStateComponent = true;
+
+/**
+ * @private
+ * @class EntityManager
+ */
+class EntityManager {
+  constructor(world) {
+    this.world = world;
+    this.componentsManager = world.componentsManager;
+
+    // All the entities in this instance
+    this._entities = [];
+
+    this._entitiesByNames = {};
+
+    this._queryManager = new QueryManager(this);
+    this.eventDispatcher = new EventDispatcher$1();
+    this._entityPool = new ObjectPool(Entity);
+
+    // Deferred deletion
+    this.entitiesWithComponentsToRemove = [];
+    this.entitiesToRemove = [];
+    this.deferredRemovalEnabled = true;
+
+    this.numStateComponents = 0;
+  }
+
+  getEntityByName(name) {
+    return this._entitiesByNames[name];
+  }
+
+  /**
+   * Create a new entity
+   */
+  createEntity(name) {
+    var entity = this._entityPool.aquire();
+    entity.alive = true;
+    entity.name = name || "";
+    if (name) {
+      if (this._entitiesByNames[name]) {
+        console.warn(`Entity name '${name}' already exist`);
+      } else {
+        this._entitiesByNames[name] = entity;
+      }
+    }
+
+    entity._world = this;
+    this._entities.push(entity);
+    this.eventDispatcher.dispatchEvent(ENTITY_CREATED, entity);
+    return entity;
+  }
+
+  // COMPONENTS
+
+  /**
+   * Add a component to an entity
+   * @param {Entity} entity Entity where the component will be added
+   * @param {Component} Component Component to be added to the entity
+   * @param {Object} values Optional values to replace the default attributes
+   */
+  entityAddComponent(entity, Component, values) {
+    if (~entity._ComponentTypes.indexOf(Component)) return;
+
+    entity._ComponentTypes.push(Component);
+
+    if (Component.__proto__ === SystemStateComponent) {
+      this.numStateComponents++;
+    }
+
+    var componentPool = this.world.componentsManager.getComponentsPool(
+      Component
+    );
+    var component = componentPool.aquire();
+
+    entity._components[Component.name] = component;
+
+    if (values) {
+      if (component.copy) {
+        component.copy(values);
+      } else {
+        for (var name in values) {
+          component[name] = values[name];
+        }
+      }
+    }
+
+    this._queryManager.onEntityComponentAdded(entity, Component);
+    this.world.componentsManager.componentAddedToEntity(Component);
+
+    this.eventDispatcher.dispatchEvent(COMPONENT_ADDED, entity, Component);
+  }
+
+  /**
+   * Remove a component from an entity
+   * @param {Entity} entity Entity which will get removed the component
+   * @param {*} Component Component to remove from the entity
+   * @param {Bool} immediately If you want to remove the component immediately instead of deferred (Default is false)
+   */
+  entityRemoveComponent(entity, Component, immediately) {
+    var index = entity._ComponentTypes.indexOf(Component);
+    if (!~index) return;
+
+    this.eventDispatcher.dispatchEvent(COMPONENT_REMOVE, entity, Component);
+
+    if (immediately) {
+      this._entityRemoveComponentSync(entity, Component, index);
+    } else {
+      if (entity._ComponentTypesToRemove.length === 0)
+        this.entitiesWithComponentsToRemove.push(entity);
+
+      entity._ComponentTypes.splice(index, 1);
+      entity._ComponentTypesToRemove.push(Component);
+
+      var componentName = getName(Component);
+      entity._componentsToRemove[componentName] =
+        entity._components[componentName];
+      delete entity._components[componentName];
+    }
+
+    // Check each indexed query to see if we need to remove it
+    this._queryManager.onEntityComponentRemoved(entity, Component);
+
+    if (Component.__proto__ === SystemStateComponent) {
+      this.numStateComponents--;
+
+      // Check if the entity was a ghost waiting for the last system state component to be removed
+      if (this.numStateComponents === 0 && !entity.alive) {
+        entity.remove();
+      }
+    }
+  }
+
+  _entityRemoveComponentSync(entity, Component, index) {
+    // Remove T listing on entity and property ref, then free the component.
+    entity._ComponentTypes.splice(index, 1);
+    var propName = componentPropertyName(Component);
+    var componentName = getName(Component);
+    var component = entity._components[componentName];
+    delete entity._components[componentName];
+    this.componentsManager._componentPool[propName].release(component);
+    this.world.componentsManager.componentRemovedFromEntity(Component);
+  }
+
+  /**
+   * Remove all the components from an entity
+   * @param {Entity} entity Entity from which the components will be removed
+   */
+  entityRemoveAllComponents(entity, immediately) {
+    let Components = entity._ComponentTypes;
+
+    for (let j = Components.length - 1; j >= 0; j--) {
+      if (Components[j].__proto__ !== SystemStateComponent)
+        this.entityRemoveComponent(entity, Components[j], immediately);
+    }
+  }
+
+  /**
+   * Remove the entity from this manager. It will clear also its components
+   * @param {Entity} entity Entity to remove from the manager
+   * @param {Bool} immediately If you want to remove the component immediately instead of deferred (Default is false)
+   */
+  removeEntity(entity, immediately) {
+    var index = this._entities.indexOf(entity);
+
+    if (!~index) throw new Error("Tried to remove entity not in list");
+
+    entity.alive = false;
+
+    if (this.numStateComponents === 0) {
+      // Remove from entity list
+      this.eventDispatcher.dispatchEvent(ENTITY_REMOVED, entity);
+      this._queryManager.onEntityRemoved(entity);
+      if (immediately === true) {
+        this._releaseEntity(entity, index);
+      } else {
+        this.entitiesToRemove.push(entity);
+      }
+    }
+
+    this.entityRemoveAllComponents(entity, immediately);
+  }
+
+  _releaseEntity(entity, index) {
+    this._entities.splice(index, 1);
+
+    // Prevent any access and free
+    entity._world = null;
+    this._entityPool.release(entity);
+  }
+
+  /**
+   * Remove all entities from this manager
+   */
+  removeAllEntities() {
+    for (var i = this._entities.length - 1; i >= 0; i--) {
+      this.removeEntity(this._entities[i]);
+    }
+  }
+
+  processDeferredRemoval() {
+    if (!this.deferredRemovalEnabled) {
+      return;
+    }
+
+    for (let i = 0; i < this.entitiesToRemove.length; i++) {
+      let entity = this.entitiesToRemove[i];
+      let index = this._entities.indexOf(entity);
+      this._releaseEntity(entity, index);
+    }
+    this.entitiesToRemove.length = 0;
+
+    for (let i = 0; i < this.entitiesWithComponentsToRemove.length; i++) {
+      let entity = this.entitiesWithComponentsToRemove[i];
+      while (entity._ComponentTypesToRemove.length > 0) {
+        let Component = entity._ComponentTypesToRemove.pop();
+
+        var propName = componentPropertyName(Component);
+        var componentName = getName(Component);
+        var component = entity._componentsToRemove[componentName];
+        delete entity._componentsToRemove[componentName];
+        this.componentsManager._componentPool[propName].release(component);
+        this.world.componentsManager.componentRemovedFromEntity(Component);
+
+        //this._entityRemoveComponentSync(entity, Component, index);
+      }
+    }
+
+    this.entitiesWithComponentsToRemove.length = 0;
+  }
+
+  /**
+   * Get a query based on a list of components
+   * @param {Array(Component)} Components List of components that will form the query
+   */
+  queryComponents(Components) {
+    return this._queryManager.getQuery(Components);
+  }
+
+  // EXTRAS
+
+  /**
+   * Return number of entities
+   */
+  count() {
+    return this._entities.length;
+  }
+
+  /**
+   * Return some stats
+   */
+  stats() {
+    var stats = {
+      numEntities: this._entities.length,
+      numQueries: Object.keys(this._queryManager._queries).length,
+      queries: this._queryManager.stats(),
+      numComponentPool: Object.keys(this.componentsManager._componentPool)
+        .length,
+      componentPool: {},
+      eventDispatcher: this.eventDispatcher.stats
+    };
+
+    for (var cname in this.componentsManager._componentPool) {
+      var pool = this.componentsManager._componentPool[cname];
+      stats.componentPool[cname] = {
+        used: pool.totalUsed(),
+        size: pool.count
+      };
+    }
+
+    return stats;
+  }
+}
+
+const ENTITY_CREATED = "EntityManager#ENTITY_CREATE";
+const ENTITY_REMOVED = "EntityManager#ENTITY_REMOVED";
+const COMPONENT_ADDED = "EntityManager#COMPONENT_ADDED";
+const COMPONENT_REMOVE = "EntityManager#COMPONENT_REMOVE";
+
+class DummyObjectPool {
+  constructor(T) {
+    this.isDummyObjectPool = true;
+    this.count = 0;
+    this.used = 0;
+    this.T = T;
+  }
+
+  aquire() {
+    this.used++;
+    this.count++;
+    return new this.T();
+  }
+
+  release() {
+    this.used--;
+  }
+
+  totalSize() {
+    return this.count;
+  }
+
+  totalFree() {
+    return Infinity;
+  }
+
+  totalUsed() {
+    return this.used;
+  }
+}
+
+class ComponentManager {
+  constructor() {
+    this.Components = {};
+    this._componentPool = {};
+    this.numComponents = {};
+  }
+
+  registerComponent(Component) {
+    if (this.Components[Component.name]) {
+      console.warn(`Component type: '${Component.name}' already registered.`);
+      return;
+    }
+
+    this.Components[Component.name] = Component;
+    this.numComponents[Component.name] = 0;
+  }
+
+  componentAddedToEntity(Component) {
+    if (!this.Components[Component.name]) {
+      this.registerComponent(Component);
+    }
+
+    this.numComponents[Component.name]++;
+  }
+
+  componentRemovedFromEntity(Component) {
+    this.numComponents[Component.name]--;
+  }
+
+  getComponentsPool(Component) {
+    var componentName = componentPropertyName(Component);
+
+    if (!this._componentPool[componentName]) {
+      if (Component.prototype.reset) {
+        this._componentPool[componentName] = new ObjectPool(Component);
+      } else {
+        console.warn(
+          `Component '${Component.name}' won't benefit from pooling because 'reset' method was not implemented.`
+        );
+        this._componentPool[componentName] = new DummyObjectPool(Component);
+      }
+    }
+
+    return this._componentPool[componentName];
+  }
+}
+
+var name = "ecsy";
+var version = "0.2.2";
+var description = "Entity Component System in JS";
+var main = "build/ecsy.js";
+var module$1 = "build/ecsy.module.js";
+var types = "src/index.d.ts";
+var scripts = {
+	build: "rollup -c && npm run docs",
+	docs: "rm docs/api/_sidebar.md; typedoc --readme none --mode file --excludeExternals --plugin typedoc-plugin-markdown  --theme docs/theme --hideSources --hideBreadcrumbs --out docs/api/ --includeDeclarations --includes 'src/**/*.d.ts' src; touch docs/api/_sidebar.md",
+	"dev:docs": "nodemon -e ts -x 'npm run docs' -w src",
+	dev: "concurrently --names 'ROLLUP,DOCS,HTTP' -c 'bgBlue.bold,bgYellow.bold,bgGreen.bold' 'rollup -c -w -m inline' 'npm run dev:docs' 'npm run dev:server'",
+	"dev:server": "http-server -c-1 -p 8080 --cors",
+	lint: "eslint src test examples",
+	start: "npm run dev",
+	test: "ava",
+	travis: "npm run lint && npm run test && npm run build",
+	"watch:test": "ava --watch"
+};
+var repository = {
+	type: "git",
+	url: "git+https://github.com/fernandojsg/ecsy.git"
+};
+var keywords = [
+	"ecs",
+	"entity component system"
+];
+var author = "Fernando Serrano <fernandojsg@gmail.com> (http://fernandojsg.com)";
+var license = "MIT";
+var bugs = {
+	url: "https://github.com/fernandojsg/ecsy/issues"
+};
+var ava = {
+	files: [
+		"test/**/*.test.js"
+	],
+	sources: [
+		"src/**/*.js"
+	],
+	require: [
+		"babel-register",
+		"esm"
+	]
+};
+var jspm = {
+	files: [
+		"package.json",
+		"LICENSE",
+		"README.md",
+		"build/ecsy.js",
+		"build/ecsy.min.js",
+		"build/ecsy.module.js"
+	],
+	directories: {
+	}
+};
+var homepage = "https://github.com/fernandojsg/ecsy#readme";
+var devDependencies = {
+	ava: "^1.4.1",
+	"babel-cli": "^6.26.0",
+	"babel-core": "^6.26.3",
+	"babel-eslint": "^10.0.3",
+	"babel-loader": "^8.0.6",
+	concurrently: "^4.1.2",
+	"docsify-cli": "^4.4.0",
+	eslint: "^5.16.0",
+	"eslint-config-prettier": "^4.3.0",
+	"eslint-plugin-prettier": "^3.1.2",
+	"http-server": "^0.11.1",
+	nodemon: "^1.19.4",
+	prettier: "^1.19.1",
+	rollup: "^1.29.0",
+	"rollup-plugin-json": "^4.0.0",
+	"rollup-plugin-terser": "^5.2.0",
+	typedoc: "^0.15.8",
+	"typedoc-plugin-markdown": "^2.2.16",
+	typescript: "^3.7.5"
+};
+var pjson = {
+	name: name,
+	version: version,
+	description: description,
+	main: main,
+	"jsnext:main": "build/ecsy.module.js",
+	module: module$1,
+	types: types,
+	scripts: scripts,
+	repository: repository,
+	keywords: keywords,
+	author: author,
+	license: license,
+	bugs: bugs,
+	ava: ava,
+	jspm: jspm,
+	homepage: homepage,
+	devDependencies: devDependencies
+};
+
+const Version = pjson.version;
+
+class World {
+  constructor() {
+    this.componentsManager = new ComponentManager(this);
+    this.entityManager = new EntityManager(this);
+    this.systemManager = new SystemManager(this);
+
+    this.enabled = true;
+
+    this.eventQueues = {};
+
+    if (typeof CustomEvent !== "undefined") {
+      var event = new CustomEvent("ecsy-world-created", {
+        detail: { world: this, version: Version }
+      });
+      window.dispatchEvent(event);
+    }
+
+    this.lastTime = performance.now();
+  }
+
+  registerComponent(Component) {
+    this.componentsManager.registerComponent(Component);
+    return this;
+  }
+
+  registerSystem(System, attributes) {
+    this.systemManager.registerSystem(System, attributes);
+    return this;
+  }
+
+  getSystem(SystemClass) {
+    return this.systemManager.getSystem(SystemClass);
+  }
+
+  getSystems() {
+    return this.systemManager.getSystems();
+  }
+
+  execute(delta, time) {
+    if (!delta) {
+      let time = performance.now();
+      delta = time - this.lastTime;
+      this.lastTime = time;
+    }
+
+    if (this.enabled) {
+      this.systemManager.execute(delta, time);
+      this.entityManager.processDeferredRemoval();
+    }
+  }
+
+  stop() {
+    this.enabled = false;
+  }
+
+  play() {
+    this.enabled = true;
+  }
+
+  createEntity(name) {
+    return this.entityManager.createEntity(name);
+  }
+
+  stats() {
+    var stats = {
+      entities: this.entityManager.stats(),
+      system: this.systemManager.stats()
+    };
+
+    console.log(JSON.stringify(stats, null, 2));
+  }
+}
+
+class System {
+  canExecute() {
+    if (this._mandatoryQueries.length === 0) return true;
+
+    for (let i = 0; i < this._mandatoryQueries.length; i++) {
+      var query = this._mandatoryQueries[i];
+      if (query.entities.length === 0) {
+        return false;
+      }
+    }
+
+    return true;
+  }
+
+  constructor(world, attributes) {
+    this.world = world;
+    this.enabled = true;
+
+    // @todo Better naming :)
+    this._queries = {};
+    this.queries = {};
+
+    this.priority = 0;
+
+    // Used for stats
+    this.executeTime = 0;
+
+    if (attributes && attributes.priority) {
+      this.priority = attributes.priority;
+    }
+
+    this._mandatoryQueries = [];
+
+    this.initialized = true;
+
+    if (this.constructor.queries) {
+      for (var queryName in this.constructor.queries) {
+        var queryConfig = this.constructor.queries[queryName];
+        var Components = queryConfig.components;
+        if (!Components || Components.length === 0) {
+          throw new Error("'components' attribute can't be empty in a query");
+        }
+        var query = this.world.entityManager.queryComponents(Components);
+        this._queries[queryName] = query;
+        if (queryConfig.mandatory === true) {
+          this._mandatoryQueries.push(query);
+        }
+        this.queries[queryName] = {
+          results: query.entities
+        };
+
+        // Reactive configuration added/removed/changed
+        var validEvents = ["added", "removed", "changed"];
+
+        const eventMapping = {
+          added: Query.prototype.ENTITY_ADDED,
+          removed: Query.prototype.ENTITY_REMOVED,
+          changed: Query.prototype.COMPONENT_CHANGED // Query.prototype.ENTITY_CHANGED
+        };
+
+        if (queryConfig.listen) {
+          validEvents.forEach(eventName => {
+            // Is the event enabled on this system's query?
+            if (queryConfig.listen[eventName]) {
+              let event = queryConfig.listen[eventName];
+
+              if (eventName === "changed") {
+                query.reactive = true;
+                if (event === true) {
+                  // Any change on the entity from the components in the query
+                  let eventList = (this.queries[queryName][eventName] = []);
+                  query.eventDispatcher.addEventListener(
+                    Query.prototype.COMPONENT_CHANGED,
+                    entity => {
+                      // Avoid duplicates
+                      if (eventList.indexOf(entity) === -1) {
+                        eventList.push(entity);
+                      }
+                    }
+                  );
+                } else if (Array.isArray(event)) {
+                  let eventList = (this.queries[queryName][eventName] = []);
+                  query.eventDispatcher.addEventListener(
+                    Query.prototype.COMPONENT_CHANGED,
+                    (entity, changedComponent) => {
+                      // Avoid duplicates
+                      if (
+                        event.indexOf(changedComponent.constructor) !== -1 &&
+                        eventList.indexOf(entity) === -1
+                      ) {
+                        eventList.push(entity);
+                      }
+                    }
+                  );
+                }
+              } else {
+                let eventList = (this.queries[queryName][eventName] = []);
+
+                query.eventDispatcher.addEventListener(
+                  eventMapping[eventName],
+                  entity => {
+                    // @fixme overhead?
+                    if (eventList.indexOf(entity) === -1)
+                      eventList.push(entity);
+                  }
+                );
+              }
+            }
+          });
+        }
+      }
+    }
+  }
+
+  stop() {
+    this.executeTime = 0;
+    this.enabled = false;
+  }
+
+  play() {
+    this.enabled = true;
+  }
+
+  // @question rename to clear queues?
+  clearEvents() {
+    for (let queryName in this.queries) {
+      var query = this.queries[queryName];
+      if (query.added) {
+        query.added.length = 0;
+      }
+      if (query.removed) {
+        query.removed.length = 0;
+      }
+      if (query.changed) {
+        if (Array.isArray(query.changed)) {
+          query.changed.length = 0;
+        } else {
+          for (let name in query.changed) {
+            query.changed[name].length = 0;
+          }
+        }
+      }
+    }
+  }
+
+  toJSON() {
+    var json = {
+      name: this.constructor.name,
+      enabled: this.enabled,
+      executeTime: this.executeTime,
+      priority: this.priority,
+      queries: {}
+    };
+
+    if (this.constructor.queries) {
+      var queries = this.constructor.queries;
+      for (let queryName in queries) {
+        let query = this.queries[queryName];
+        let queryDefinition = queries[queryName];
+        let jsonQuery = (json.queries[queryName] = {
+          key: this._queries[queryName].key
+        });
+
+        jsonQuery.mandatory = queryDefinition.mandatory === true;
+        jsonQuery.reactive =
+          queryDefinition.listen &&
+          (queryDefinition.listen.added === true ||
+            queryDefinition.listen.removed === true ||
+            queryDefinition.listen.changed === true ||
+            Array.isArray(queryDefinition.listen.changed));
+
+        if (jsonQuery.reactive) {
+          jsonQuery.listen = {};
+
+          const methods = ["added", "removed", "changed"];
+          methods.forEach(method => {
+            if (query[method]) {
+              jsonQuery.listen[method] = {
+                entities: query[method].length
+              };
+            }
+          });
+        }
+      }
+    }
+
+    return json;
+  }
+}
+
+class Component {}
+
+Component.isComponent = true;
+
+class TagComponent {
+  reset() {}
+}
+
+TagComponent.isTagComponent = true;
+
+function createType(typeDefinition) {
+  var mandatoryFunctions = [
+    "create",
+    "reset",
+    "clear"
+    /*"copy"*/
+  ];
+
+  var undefinedFunctions = mandatoryFunctions.filter(f => {
+    return !typeDefinition[f];
+  });
+
+  if (undefinedFunctions.length > 0) {
+    throw new Error(
+      `createType expect type definition to implements the following functions: ${undefinedFunctions.join(
+        ", "
+      )}`
+    );
+  }
+
+  typeDefinition.isType = true;
+  return typeDefinition;
+}
+
+/**
+ * Standard types
+ */
+var Types = {};
+
+Types.Number = createType({
+  baseType: Number,
+  isSimpleType: true,
+  create: defaultValue => {
+    return typeof defaultValue !== "undefined" ? defaultValue : 0;
+  },
+  reset: (src, key, defaultValue) => {
+    if (typeof defaultValue !== "undefined") {
+      src[key] = defaultValue;
+    } else {
+      src[key] = 0;
+    }
+  },
+  clear: (src, key) => {
+    src[key] = 0;
+  }
+});
+
+Types.Boolean = createType({
+  baseType: Boolean,
+  isSimpleType: true,
+  create: defaultValue => {
+    return typeof defaultValue !== "undefined" ? defaultValue : false;
+  },
+  reset: (src, key, defaultValue) => {
+    if (typeof defaultValue !== "undefined") {
+      src[key] = defaultValue;
+    } else {
+      src[key] = false;
+    }
+  },
+  clear: (src, key) => {
+    src[key] = false;
+  }
+});
+
+Types.String = createType({
+  baseType: String,
+  isSimpleType: true,
+  create: defaultValue => {
+    return typeof defaultValue !== "undefined" ? defaultValue : "";
+  },
+  reset: (src, key, defaultValue) => {
+    if (typeof defaultValue !== "undefined") {
+      src[key] = defaultValue;
+    } else {
+      src[key] = "";
+    }
+  },
+  clear: (src, key) => {
+    src[key] = "";
+  }
+});
+
+Types.Array = createType({
+  baseType: Array,
+  create: defaultValue => {
+    if (typeof defaultValue !== "undefined") {
+      return defaultValue.slice();
+    }
+
+    return [];
+  },
+  reset: (src, key, defaultValue) => {
+    if (typeof defaultValue !== "undefined") {
+      src[key] = defaultValue.slice();
+    } else {
+      src[key].length = 0;
+    }
+  },
+  clear: (src, key) => {
+    src[key].length = 0;
+  },
+  copy: (src, dst, key) => {
+    src[key] = dst[key].slice();
+  }
+});
+
+function generateId(length) {
+  var result = "";
+  var characters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+  var charactersLength = characters.length;
+  for (var i = 0; i < length; i++) {
+    result += characters.charAt(Math.floor(Math.random() * charactersLength));
+  }
+  return result;
+}
+
+function injectScript(src, onLoad) {
+  var script = document.createElement("script");
+  // @todo Use link to the ecsy-devtools repo?
+  script.src = src;
+  script.onload = onLoad;
+  (document.head || document.documentElement).appendChild(script);
+}
+
+/* global Peer */
+
+function hookConsoleAndErrors(connection) {
+  var wrapFunctions = ["error", "warning", "log"];
+  wrapFunctions.forEach(key => {
+    if (typeof console[key] === "function") {
+      var fn = console[key].bind(console);
+      console[key] = (...args) => {
+        connection.send({
+          method: "console",
+          type: key,
+          args: JSON.stringify(args)
+        });
+        return fn.apply(null, args);
+      };
+    }
+  });
+
+  window.addEventListener("error", error => {
+    connection.send({
+      method: "error",
+      error: JSON.stringify({
+        message: error.error.message,
+        stack: error.error.stack
+      })
+    });
+  });
+}
+
+function includeRemoteIdHTML(remoteId) {
+  let infoDiv = document.createElement("div");
+  infoDiv.style.cssText = `
+    align-items: center;
+    background-color: #333;
+    color: #aaa;
+    display:flex;
+    font-family: Arial;
+    font-size: 1.1em;
+    height: 40px;
+    justify-content: center;
+    left: 0;
+    opacity: 0.9;
+    position: absolute;
+    right: 0;
+    text-align: center;
+    top: 0;
+  `;
+
+  infoDiv.innerHTML = `Open ECSY devtools to connect to this page using the code:&nbsp;<b style="color: #fff">${remoteId}</b>&nbsp;<button onClick="generateNewCode()">Generate new code</button>`;
+  document.body.appendChild(infoDiv);
+
+  return infoDiv;
+}
+
+function enableRemoteDevtools(remoteId) {
+  window.generateNewCode = () => {
+    window.localStorage.clear();
+    remoteId = generateId(6);
+    window.localStorage.setItem("ecsyRemoteId", remoteId);
+    window.location.reload(false);
+  };
+
+  remoteId = remoteId || window.localStorage.getItem("ecsyRemoteId");
+  if (!remoteId) {
+    remoteId = generateId(6);
+    window.localStorage.setItem("ecsyRemoteId", remoteId);
+  }
+
+  let infoDiv = includeRemoteIdHTML(remoteId);
+
+  window.__ECSY_REMOTE_DEVTOOLS_INJECTED = true;
+  window.__ECSY_REMOTE_DEVTOOLS = {};
+
+  let Version = "";
+
+  // This is used to collect the worlds created before the communication is being established
+  let worldsBeforeLoading = [];
+  let onWorldCreated = e => {
+    var world = e.detail.world;
+    Version = e.detail.version;
+    worldsBeforeLoading.push(world);
+  };
+  window.addEventListener("ecsy-world-created", onWorldCreated);
+
+  let onLoaded = () => {
+    var peer = new Peer(remoteId);
+    peer.on("open", (/* id */) => {
+      peer.on("connection", connection => {
+        window.__ECSY_REMOTE_DEVTOOLS.connection = connection;
+        connection.on("open", function() {
+          // infoDiv.style.visibility = "hidden";
+          infoDiv.innerHTML = "Connected";
+
+          // Receive messages
+          connection.on("data", function(data) {
+            if (data.type === "init") {
+              var script = document.createElement("script");
+              script.setAttribute("type", "text/javascript");
+              script.onload = () => {
+                script.parentNode.removeChild(script);
+
+                // Once the script is injected we don't need to listen
+                window.removeEventListener(
+                  "ecsy-world-created",
+                  onWorldCreated
+                );
+                worldsBeforeLoading.forEach(world => {
+                  var event = new CustomEvent("ecsy-world-created", {
+                    detail: { world: world, version: Version }
+                  });
+                  window.dispatchEvent(event);
+                });
+              };
+              script.innerHTML = data.script;
+              (document.head || document.documentElement).appendChild(script);
+              script.onload();
+
+              hookConsoleAndErrors(connection);
+            } else if (data.type === "executeScript") {
+              let value = eval(data.script);
+              if (data.returnEval) {
+                connection.send({
+                  method: "evalReturn",
+                  value: value
+                });
+              }
+            }
+          });
+        });
+      });
+    });
+  };
+
+  // Inject PeerJS script
+  injectScript(
+    "https://cdn.jsdelivr.net/npm/peerjs@0.3.20/dist/peer.min.js",
+    onLoaded
+  );
+}
+
+const urlParams = new URLSearchParams(window.location.search);
+
+// @todo Provide a way to disable it if needed
+if (urlParams.has("enable-remote-devtools")) {
+  enableRemoteDevtools();
+}
+
+class CameraTarget extends TagComponent { }
+class Controllable extends TagComponent { }
+// TODO damage(hp: 10) component 
+class Damageable extends TagComponent { }
+class BadBoy extends TagComponent { }
+class GoodBoy extends TagComponent { }
+
+class DeleteAfter extends Component {
+    constructor() {
+        super();
+        // timer
+        this.seconds = 0;
+    }
+
+    reset() {
+        this.seconds = 0;
+    }
+}
+
+class CannonBody extends Component {
+    constructor() {
+        super();
+        // body 
+        this.value = null;
+    }
+
+    reset() {
+        this.value = null;
+    }
+}
+
+class ThreeMesh extends Component {
+    constructor() {
+        super();
+        // mesh 
+        this.value = null;
+    }
+
+    reset() {
+        this.value = null;
+    }
+}
+
+class SpriteAnimation extends Component {
+    constructor() {
+        super();
+        this.reset();
+    }
+
+    reset() {
+        this.time = 0;
+        this.current_animation = null;
+        this.frame = 0;
+        this.move_left = [];
+        this.move_right = [];
+        this.default = [];
+    }
+}
+
+// TODO weapon component 
+class ShootBullets extends Component {
+    constructor() {
+        super();
+        this.reset();
+    }
+
+    reset() {
+        // in s
+        this.time = 0;
+        // in s
+        this.delay = 0.1;
+    }
+}
+
+class ApplyImpulse extends Component {
+    constructor() {
+        super();
+        this.reset();
+    }
+
+    reset() {
+        this.impulse = null; 
+        this.point = null;
+    }
+}
+
+class SceneSystem extends System {
+    constructor(world, attributes) {
+        super(world, attributes);
+        this.scene = attributes.scene;
+    }
+
+    init() {}
+
+    execute() {
+        // removed 
+        this.queries.entities.removed.forEach(e => {
+            // get the mesh
+            const mesh = e.getRemovedComponent(ThreeMesh).value;
+            this.scene.remove(mesh);
+        });
+
+        // added
+        this.queries.entities.added.forEach(e => {
+            const mesh = e.getComponent(ThreeMesh).value;
+            this.scene.add(mesh);
+        });
+
+        // syncWithPhysics
+        this.queries.syncWithPhysics.results.forEach(e => {
+            const mesh = e.getComponent(ThreeMesh).value;
+            const body = e.getComponent(CannonBody).value;
+            mesh.position.copy(body.position);
+            mesh.quaternion.copy(body.quaternion);
+        });
+    }
+
+}
+
+SceneSystem.queries = {
+    entities: {
+        components: [ThreeMesh],
+        listen: {
+            added: true,
+            removed: true
+        }
+    },
+    syncWithPhysics: {
+        components: [ThreeMesh, CannonBody]
+    }
+};
+
+class PhysicSystem extends System {
+    constructor(world, attributes) {
+        super(world, attributes);
+        this.cannon_world = attributes.cannon_world;
+        this.controller = attributes.controller;
+    }
+
+    init() { }
+
+    execute(delta) {
+        const entities = this.queries.entities;
+        // removed 
+        entities.removed.forEach(e => {
+            // get the body
+            const body = e.getRemovedComponent(CannonBody).value;
+            this.cannon_world.remove(body);
+        });
+
+        // added
+        entities.added.forEach(e => {
+            const body = e.getComponent(CannonBody).value;
+            this.cannon_world.add(body);
+        });
+
+        entities.results.forEach(e => {
+            const body = e.getComponent(CannonBody).value;
+            if (body.position.y < -20) {
+                console.log('goodbye!');
+                e.remove();
+            }
+        });
+
+        // controllables
+        this.queries.controllables.results.forEach(e => {
+            const body = e.getComponent(CannonBody).value;
+            const dir = this.controller.state.dir;
+            let force = new cannon.Vec3(dir.x, 0, dir.y)
+                .scale(-0.5);
+            body.applyImpulse(force, body.position);
+        });
+
+        
+        // impulses
+        this.queries.impulses.added.forEach(e => {
+            const body = e.getComponent(CannonBody).value;
+            const force = e.getComponent(ApplyImpulse);
+            body.applyImpulse(force.impulse, force.point);
+        });
+
+        // sim
+        // TODO loop
+        this.cannon_world.step(delta / 4);
+        this.cannon_world.step(delta / 2);
+    }
+
+}
+
+PhysicSystem.queries = {
+    entities: {
+        components: [CannonBody],
+        listen: {
+            added: true,
+            removed: true
+        }
+    },
+    controllables: {
+        components: [Controllable, CannonBody]
+    },
+    impulses: {
+        components: [ApplyImpulse, CannonBody],
+        listen: {
+            added: true
+        }
+    }
+};
+
+class TimerSystem extends System {
+    constructor(world, attributes) {
+        super(world, attributes);
+    }
+
+    init() {}
+
+    execute(delta) {
+        // delete after n.ms
+        this.queries.deleteAfter.results.forEach(e => {
+            const time_left = (e.getMutableComponent(DeleteAfter).seconds -= delta);
+            if(time_left <= 0) 
+                e.remove();
+        });
+    }
+
+}
+
+TimerSystem.queries = {
+    deleteAfter: {
+        components: [DeleteAfter]
+    }
+};
+
+class MeshFactory {
+
+    static createText(position = new Vector3(), text = 'hi', options = {}) {
+        // https://threejsfundamentals.org/threejs/lessons/threejs-canvas-textures.html
+        // TODO more options
+        const fillStyle = options.fillStyle || '#ffffff';
+        const strokeStyle = options.strokeStyle || '#000000';
+        const fontsize = options.fontsize || 32;
+        const fontface = options.fontface || 'monospace';
+        const lineWidth = ~~(fontsize / 4);
+        const doubleBorderSize = lineWidth * 2;
+        const font = `bold ${fontsize}px ${fontface}`;
+        // ctx 
+        const ctx = document.createElement('canvas').getContext('2d');
+        ctx.font = font;
+        ctx.lineWidth = lineWidth;
+        ctx.strokeStyle = strokeStyle;
+        ctx.fillStyle = fillStyle;
+
+        // size
+        const width = ~~ctx.measureText(text).width + doubleBorderSize + 1;
+        const height = fontsize + doubleBorderSize;
+        ctx.canvas.width = width;
+        ctx.canvas.height = height;
+        ctx.canvas.style.width = width + "px";
+        ctx.canvas.style.height = height + "px";
+
+        // need to set font again after resizing canvas
+        ctx.font = font;
+        ctx.lineWidth = lineWidth;
+        ctx.strokeStyle = strokeStyle;
+        ctx.fillStyle = fillStyle;
+        ctx.textBaseline = 'top';
+
+        // write text
+        ctx.strokeText(text, lineWidth, lineWidth);
+        ctx.fillText(text, lineWidth, lineWidth);
+
+        const texture = new CanvasTexture(ctx.canvas);
+        texture.minFilter = LinearMipmapLinearFilter;
+        texture.magFilter = NearestFilter;
+        texture.needsUpdate = true;
+
+        const material = new SpriteMaterial({ map: texture });
+        const sprite = new Sprite(material);
+        sprite.scale.set(0.01 * width, 0.01 * height, 1);
+        sprite.position.copy(position);
+        return sprite;
+    }
+
+    static createCube(size, position, color = 0x00ffff) {
+        const geometry = new BoxGeometry(
+            size[0],
+            size[1],
+            size[2]
+        );
+
+        const material = new MeshBasicMaterial({
+            color: color
+        });
+
+        const mesh = new Mesh(geometry, material);
+        mesh.position.x = position[0];
+        mesh.position.y = position[1];
+        mesh.position.z = position[2];
+        return mesh;
+    }
+
+    static createTile(size = new Vector2(1, 1), color = 0xff00ff) {
+        const geometry = new PlaneGeometry(
+            size.x,
+            size.y,
+            1, 1);
+
+        const material = new MeshBasicMaterial({
+            color: color
+        });
+
+        const mesh = new Mesh(geometry, material);
+        mesh.position.y = 0.5;
+        mesh.rotation.x = -Math.PI / 2;
+
+        return mesh;
+    }
+
+    static createAxes(position = new Vector3()) {
+        const group = new Group();
+        const axes = new AxesHelper(1);
+        group.add(axes);
+
+        const tx = MeshFactory.createText(new Vector3(1, 0, 0), 'x');
+        group.add(tx);
+
+        const ty = MeshFactory.createText(new Vector3(0, 1, 0), 'y');
+        group.add(ty);
+        
+        const tz = MeshFactory.createText(new Vector3(0, 0, 1), 'z');
+        group.add(tz);
+        
+        group.position.copy(position);
+
+        return group;
+    }
+
+}
+
+class EntityFactory {
+    constructor(ecsy, spriteSheet) {
+        this.ecsy = ecsy;
+        this.spriteSheet = spriteSheet;
+    }
+
+    createTexture(x, y, options = {}) {
+        const tile = this.spriteSheet.getTile(x, y);
+        const texture = new Texture(tile);
+        texture.minFilter = LinearMipmapLinearFilter;
+        texture.magFilter = NearestFilter;
+        texture.needsUpdate = true;
+        // repeat texture
+        let r_x = options.repeat_x;
+        let r_y = options.repeat_y;
+        if (r_x || r_y) {
+            r_x = r_x != null ? r_x : .99;
+            r_y = r_y != null ? r_y : .99;
+            texture.wrapS = texture.wrapT = RepeatWrapping;
+            texture.repeat.set(r_x, r_y);
+        }
+        return texture;
+    }
+
+    create(type = 1, position = new Vector3()) {
+        if (type == 1) {
+            this.createBlock(position);
+        }
+        else if (type == 2) {
+            this.createItem(position);
+        }
+        else if (type == 3) {
+            this.createHero(position);
+        }
+        if (type == 4) {
+            this.createCrate(position);
+        }
+        if (type == 5) {
+            this.createBall(position);
+        }
+        if (type == 6) {
+            this.createEnemy(position);
+        }
+    }
+
+    createAxes() {
+        const axesMesh = MeshFactory.createAxes(new Vector3(0, 1, 0));
+
+        this.ecsy.createEntity()
+            .addComponent(ThreeMesh, { value: axesMesh });
+    }
+
+    createDemoText() {
+        // text
+        const sprite = MeshFactory.createText(
+            new Vector3(0, 2, 0),
+            "READY TO 🍪?!");
+
+        this.ecsy.createEntity()
+            .addComponent(DeleteAfter, { seconds: 2 })
+            .addComponent(ThreeMesh, { value: sprite });
+
+    }
+
+    createTile(position = new Vector3(), size = new Vector3(1, 1, 1)) {
+        const geometry = new PlaneGeometry(size.x, size.y, 1, 1);
+
+        const x = ~~(Math.random() * 2) + 4;
+        const y = 14;
+        const material = new MeshBasicMaterial({
+            map: this.createTexture(x, y)
+        });
+
+        const mesh = new Mesh(geometry, material);
+        mesh.position.copy(position);
+        mesh.position.y -= .5;
+        mesh.rotation.x = -Math.PI / 2;
+
+        this.ecsy.createEntity()
+            .addComponent(ThreeMesh, { value: mesh });
+    }
+
+    createBlock(position = new Vector3(), size = new Vector3(1, 1, 1)) {
+        const geometry = new BoxGeometry(size.x, size.y, size.z);
+        const material0 = new MeshBasicMaterial({
+            map: this.createTexture(3, 10)
+        });
+        const material1 = new MeshBasicMaterial({
+            map: this.createTexture(2, 10)
+        });
+
+        const materials = [];
+        materials.push(material1); // left
+        materials.push(material1); // right
+        materials.push(material0); // top
+        materials.push(material0); // bottom
+        materials.push(material1); // back
+        materials.push(material1); // front
+        const mesh = new Mesh(geometry, materials);
+        mesh.position.copy(position);
+
+        const box_size = new cannon.Vec3(0.5 * size.x, 0.5 * size.y, 0.5 * size.z);
+        const box = new cannon.Box(box_size);
+
+        const body = new cannon.Body({
+            type: cannon.Body.STATIC,
+            mass: 0,
+            position: position,
+            material: new cannon.Material({ restitution: 1 })
+        });
+        body.updateMassProperties();
+        body.addShape(box);
+
+        this.ecsy.createEntity()
+            .addComponent(ThreeMesh, { value: mesh })
+            .addComponent(CannonBody, { value: body });
+
+    }
+
+    createItem(position = new Vector3(), size = new Vector3(1, 1, 1)) {
+        const material = new SpriteMaterial({
+            map: this.createTexture(0, 9)
+        });
+        const mesh = new Sprite(material);
+        mesh.scale.set(0.8 * size.x, 0.8 * size.y, 1);
+        mesh.position.copy(position);
+
+        this.ecsy.createEntity()
+            .addComponent(ThreeMesh, { value: mesh });
+    }
+
+    createHero(position = new Vector3(), size = new Vector3(1, 1, 1)) {
+        const move_right = [];
+        move_right.push(this.createTexture(0, 8));
+        move_right.push(this.createTexture(7, 7));
+
+        const move_left = [];
+        move_left.push(this.createTexture(0, 8, { repeat_x: -.99 }));
+        move_left.push(this.createTexture(7, 7, { repeat_x: -.99 }));
+        const current_animation = move_left;
+
+        const material = new SpriteMaterial({ map: current_animation[0] });
+        const mesh = new Sprite(material);
+        mesh.scale.set(0.8 * size.x, 0.8 * size.y, size.z);
+        mesh.position.copy(position);
+
+        const box_size = new cannon.Vec3(0.4 * size.x, 0.4 * size.y, 0.4 * size.z);
+        const shape = new cannon.Box(box_size);
+
+        const body = new cannon.Body({
+            mass: 1,
+            position: position,
+            fixedRotation: true,
+            material: new cannon.Material({
+                friction: 0.5,
+                restitution: 0.5
+            })
+        });
+        body.addShape(shape);
+
+        this.ecsy.createEntity()
+            .addComponent(ThreeMesh, { value: mesh })
+            .addComponent(CannonBody, { value: body })
+            .addComponent(CameraTarget)
+            .addComponent(Controllable)
+            .addComponent(SpriteAnimation, {
+                move_left,
+                move_right,
+                current_animation
+            })
+            .addComponent(GoodBoy)
+            .addComponent(ShootBullets);
+    }
+
+    createCrate(position = new Vector3(), size = new Vector3(1, 1, 1)) {
+        const geometry = new BoxGeometry(
+            0.8 * size.x,
+            0.8 * size.y,
+            0.8 * size.z
+        );
+        const material = new MeshToonMaterial({
+            map: this.createTexture(6, 2),
+            shininess: 0.2
+        });
+        const mesh = new Mesh(geometry, material);
+        mesh.position.copy(position);
+
+        const box_size = new cannon.Vec3(0.4 * size.x, 0.4 * size.y, 0.4 * size.z);
+        const box = new cannon.Box(box_size);
+
+        const body = new cannon.Body({
+            mass: 0.01,
+            position: position
+        });
+        body.addShape(box);
+
+        this.ecsy.createEntity()
+            .addComponent(ThreeMesh, { value: mesh })
+            .addComponent(CannonBody, { value: body });
+    }
+
+    createBall(position = new Vector3(), size = new Vector3(1, 1, 1)) {
+        const geometry = new IcosahedronGeometry(0.4 * size.x, 1);
+        const material = new MeshToonMaterial({
+            map: this.createTexture(0, 11),
+            shininess: 0.1
+        });
+        const mesh = new Mesh(geometry, material);
+        mesh.position.copy(position);
+
+        const sphere = new cannon.Sphere(0.4 * size.x);
+        const body = new cannon.Body({
+            mass: 1,
+            position: position,
+            material: new cannon.Material({ restitution: 0.9 })
+        });
+        body.addShape(sphere);
+
+        this.ecsy.createEntity()
+            .addComponent(ThreeMesh, { value: mesh })
+            .addComponent(CannonBody, { value: body });
+    }
+
+    createGround(position = new Vector3(), size = new Vector3(1, 1, 1)) {
+        const body = new cannon.Body({
+            type: cannon.Body.STATIC,
+            mass: 0,
+            shape: new cannon.Box(new cannon.Vec3(.5 * size.x, 1, .5 * size.z)),
+            position: position,
+            material: new cannon.Material({
+                friction: 0
+            })
+        });
+        body.updateMassProperties();
+
+        this.ecsy.createEntity()
+            .addComponent(CannonBody, { value: body });
+    }
+
+    createEnemy(position = new Vector3(), size = new Vector3(1, 1, 1)) {
+        const material = new SpriteMaterial({
+            map: this.createTexture(2, 9)
+        });
+        const mesh = new Sprite(material);
+        mesh.scale.set(0.8 * size.x, 0.8 * size.y, 1);
+        mesh.position.copy(position);
+
+        const box_size = new cannon.Vec3(0.4 * size.x, 0.4 * size.y, 0.4 * size.z);
+        const box = new cannon.Box(box_size);
+
+        const body = new cannon.Body({
+            mass: 1,
+            position: position,
+            fixedRotation: true,
+            material: new cannon.Material({
+                friction: 0,
+                restitution: 0.9
+            })
+        });
+        body.addShape(box);
+
+        this.ecsy.createEntity()
+            .addComponent(ThreeMesh, { value: mesh })
+            .addComponent(CannonBody, { value: body })
+            .addComponent(BadBoy)
+            .addComponent(Damageable);
+    }
+
+    createBullet(position = new Vector3(), impulse = new Vector3(), size = new Vector3(1, 1, 1)) {
+        const material = new SpriteMaterial({
+            map: this.createTexture(4, 3)
+        });
+        const mesh = new Sprite(material);
+        mesh.position.copy(position);
+
+        const shape = new cannon.Sphere(0.1 * size.x);
+        const body = new cannon.Body({
+            mass: 0.1,
+            position: position,
+            fixedRotation: true
+        });
+        body.addShape(shape);
+        // TODO add it in physicssystem + component
+        // TODO : damages !
+        // body.addEventListener('collide', (e) => this.collide(e))
+
+        this.ecsy.createEntity()
+            .addComponent(DeleteAfter, { seconds: 1 })
+            .addComponent(ThreeMesh, { value: mesh })
+            .addComponent(CannonBody, { value: body })
+            .addComponent(ApplyImpulse, {
+                impulse: impulse, 
+                point: body.position
+            });
+    }
+}
+
+class CameraSystem extends System {
+    constructor(world, attributes) {
+        super(world, attributes);
+        this.camera = attributes.camera;
+        this.control = attributes.control;
+    }
+
+    execute() {
+        // to_follow 
+        this.queries.to_follow.results.forEach(e => {
+            const mesh = e.getComponent(ThreeMesh).value;
+            this.camera.position.x = mesh.position.x;
+            this.camera.position.y = mesh.position.y + 8;
+            this.camera.position.z = mesh.position.z - 8;
+            this.control.target.z = mesh.position.z + 8;
+        });
+    }
+
+}
+
+CameraSystem.queries = {
+    to_follow: {
+        components: [CameraTarget, ThreeMesh]
+    }
+};
+
+class SpriteAnimationSystem extends System {
+    constructor(world, attributes) {
+        super(world, attributes);
+    }
+
+    init() {
+        console.log('init from SpriteAnimationSytem');
+    }
+
+    execute(delta) {
+        this.queries.animations.results.forEach(e => {
+            const mesh = e.getComponent(ThreeMesh).value;
+            const body = e.getComponent(CannonBody).value;
+            let animation = e.getMutableComponent(SpriteAnimation);
+            // update time
+            animation.time += delta;
+
+            if (body && body.velocity.x < -0.01) {
+                this.setAnimation(mesh, animation, animation.move_right);
+            }
+            if (body && body.velocity.x > 0.01) {
+                this.setAnimation(mesh, animation, animation.move_left);
+            }
+
+            // TODO animation time, animation_name
+            if (animation.time > 1) {
+                this.nextFrame(animation);
+                this.setFrame(mesh, animation);
+            }
+        });
+    }
+
+
+    setAnimation(mesh, animation, animation_name) {
+        if (animation.current_animation == animation_name) return;
+        animation.current_animation = animation_name;
+        this.setFrame(mesh, animation);
+    }
+
+    nextFrame(animation) {
+        animation.frame += 1;
+        animation.time = 0;
+        if (animation.frame > 1)
+            animation.frame = 0;
+    }
+
+    setFrame(mesh, animation) {
+        mesh.material.map = animation.current_animation[animation.frame];
+        mesh.material.map.needsUpdate = true;
+        mesh.material.needsUpdate = true;
+    }
+}
+
+SpriteAnimationSystem.queries = {
+    animations: {
+        components: [SpriteAnimation, ThreeMesh]
+    }
+};
+
+class WeaponSystem extends System {
+    constructor(world, attributes) {
+        super(world, attributes);
+    }
+
+    init() { }
+
+    execute(delta) {
+        // bad_boys
+        const bad_boys = this.queries.bad_boys.results;
+
+        // good boy bullets
+        this.queries.good_boy_bullets.results.forEach(e => {
+            const mesh = e.getComponent(ThreeMesh).value;
+            const shootBullets = e.getMutableComponent(ShootBullets);
+            
+            // update time
+            shootBullets.time += delta;
+
+            // spawn a bullet
+            if (shootBullets.time >= shootBullets.delay) {
+                shootBullets.time = 0;
+
+                // TODO check + find the closest + clone mandatory ?
+                const pos = mesh.position.clone();
+                const enemy_mesh = bad_boys[0].getComponent(ThreeMesh).value;
+                const enemy_pos = enemy_mesh.position.clone();
+
+                // impulse
+                const impulse = enemy_pos.sub(pos).setLength(5);
+   
+                // offset
+                const offset = impulse.clone().setLength(0.5);
+
+                const bullet_pos = new Vector3(pos.x + offset.x, 1, pos.z + offset.z);
+                this.world.factory.createBullet(bullet_pos, impulse);
+            }
+        });
+    }
+
+}
+
+WeaponSystem.queries = {
+    bad_boys: {
+        components: [BadBoy]
+    },
+    good_boy_bullets: {
+        components: [ShootBullets, GoodBoy]
+    }
+};
+
 class App {
     constructor() {
         new MiniConsole();
@@ -65133,30 +67106,32 @@ class App {
         this.ts = new ThreeScene();
         this.world = new cannon.World();
         this.world.gravity.set(0, -10, 0);
-
         this.debugRenderer = new CannonDebugRenderer(this.ts.scene, this.world);
         this.controller = new TouchController();
 
-        // TODO to be replaced by an ECS
-        this.entities = [];
+        this.ecsy = new World()
+            .registerSystem(TimerSystem)
+            .registerSystem(SpriteAnimationSystem)
+            .registerSystem(WeaponSystem)
+            .registerSystem(CameraSystem, { camera: this.ts.camera, control: this.ts.control })
+            .registerSystem(PhysicSystem, { cannon_world: this.world, controller: this.controller })
+            .registerSystem(SceneSystem, { scene: this.ts.scene });
+
+        this.spriteSheet = new SpriteSheet('resources/textures/raw_tileset01.png', 8, 15, 8, 8);
+        this.ecsy.factory = new EntityFactory(this.ecsy, this.spriteSheet);
 
         window.addEventListener('resize', () => this.resize(), false);
         this.resize();
 
-        const axes = MeshFactory.createAxes();
-        axes.position.y = 1;
-        this.ts.scene.add(axes);
+        // axes
+        this.ecsy.factory.createAxes();
 
-        const text = MeshFactory.createText("READY TO 🍪?!");
-        text.position.y = 2;
-        this.ts.scene.add(text);
+        // text
+        this.ecsy.factory.createDemoText();
     }
 
     async start() {
-        // TODO const
-        this.spriteSheet = new SpriteSheet('resources/textures/raw_tileset01.png', 8, 15, 8, 8);
         await this.spriteSheet.load();
-        const spriteSheet = this.spriteSheet;
 
         const data = constants.level.data;
         const rows = data.length;
@@ -65166,130 +67141,56 @@ class App {
         const z_offset = ~~(rows / 2);
         for (let l = 0; l < rows; l++) {
             for (let r = 0; r < cols; r++) {
-                const c = data[l][r];
-                const size = [1, 1, 1];
-                const position = [
-                    -r + x_offset,
-                    1,
-                    -l + z_offset,
-                ];
-
-                this.ts.scene.add(new Tile(size, position, spriteSheet));
-
-                if (c == 1) {
-                    const block = new Block(size, position, spriteSheet);
-                    this.world.addBody(block.body);
-                    this.ts.scene.add(block.mesh);
-                    this.entities.push(block);
-                }
-                else if (c == 2) {
-                    const item = new Item(size, position, spriteSheet);
-                    this.ts.scene.add(item.mesh);
-                }
-                else if (c == 3) {
-                    this.hero = new Hero(size, position, spriteSheet);
-                    this.world.addBody(this.hero.body);
-                    this.ts.scene.add(this.hero.mesh);
-                    this.entities.push(this.hero);
-                }
-                if (c == 4) {
-                    const crate = new Crate(size, position, spriteSheet);
-                    this.world.addBody(crate.body);
-                    this.ts.scene.add(crate.mesh);
-                    this.entities.push(crate);
-                }
-                if (c == 5) {
-                    const ball = new Ball(size, position, spriteSheet);
-                    this.world.addBody(ball.body);
-                    this.ts.scene.add(ball.mesh);
-                    this.entities.push(ball);
-                }
-                if (c == 6) {
-                    this.enemy = new Enemy(size, position, spriteSheet);
-                    this.world.addBody(this.enemy.body);
-                    this.ts.scene.add(this.enemy.mesh);
-                    this.entities.push(this.enemy);
-                }
+                const type = data[l][r];
+                const position = new Vector3(-r + x_offset, 1, -l + z_offset);
+                // this.ecsy.factory.createTile(position);
+                this.ecsy.factory.create(type, position);
             }
         }
-        const ground = new cannon.Body({
-            type: cannon.Body.STATIC,
-            mass: 0,
-            shape: new cannon.Box(new cannon.Vec3(.5 * cols, 1, .5 * rows)),
-            position: new cannon.Vec3(0, -0.5, 0.5),
-            material: new cannon.Material({
-                friction: 0
-            })
-        });
-        ground.updateMassProperties();
-        this.world.addBody(ground);
+        this.ecsy.factory.createGround(
+            new Vector3(0, -.5, 0.5),
+            new Vector3(cols, 1, rows)
+        );
 
         requestAnimationFrame((t) => this.update(t));
     }
 
-    update(t) {
-        let delta = (t - this.lastTime) * 0.001;
+    update(time) {
+        let delta = (time - this.lastTime) * 0.001;
         delta = Math.min(delta, 0.1);
-        this.lastTime = t;
-
-        // TODO update controller
-        const dir = this.controller.state.dir;
-        let force = new cannon.Vec3(dir.x, 0, dir.y)
-            .scale(-0.5);
-        this.hero.body.applyImpulse(force, this.hero.body.position);
-
-        // TODO update physics
-        this.world.step(delta);
-
-        // TODO hero update
-        for (let i = 0; i < this.entities.length; i++) {
-            const e = this.entities[i];
-            e.mesh.position.copy(e.body.position);
-            e.mesh.quaternion.copy(e.body.quaternion);
-        }
-
-        // force hero rotation
-        // this.hero.body.quaternion = new CANNON.Quaternion(0, 0, 0, 1);
-        this.hero.update(delta);
+        this.lastTime = time;
+       
+        this.ecsy.execute(delta, time);
 
         // TODO enemy update
-        this.enemy.time += delta;
-    
-        if(this.enemy.time > 0.1) {
-            this.enemy.time = 0;
-            // fire
-            // TODO position, velocity
-            // add to physics
-            // add to render
-            // edit collision
-            // TODO pas sur por le new ou  le create p-e clone une instance
-            // TODO spriteSheet
-            const radius = 1;
-            const enemy_pos = this.enemy.mesh.position.clone();
-            const spriteSheet = this.spriteSheet;
-            const direction = this.hero.mesh.position.clone()
-                .sub(enemy_pos)
-                .normalize();
-            const position = [enemy_pos.x + direction.x, 1, enemy_pos.z + direction.z];
-            direction.setLength(1.5);
-            direction.y = 1;
-            const bullet = new Bullet(radius, position, spriteSheet);
-            this.world.addBody(bullet.body);
-            this.ts.scene.add(bullet.mesh);
-            this.entities.push(bullet);
-            bullet.body.applyImpulse(direction, bullet.body.position);
-        }
-    
-       
-        // TODO update camera
-        this.ts.camera.position.x = this.hero.mesh.position.x;
-        this.ts.camera.position.y = this.hero.mesh.position.y + 8;
-        this.ts.camera.position.z = this.hero.mesh.position.z - 8;
-        this.ts.control.target.z = this.hero.mesh.position.z + 8;
+        // this.enemy.time += delta;
 
+        // if (this.enemy.time > 0.1) {
+        //     this.enemy.time = 0;
+        //     // fire
+        //     // TODO position, velocity
+        //     // add to physics
+        //     // add to render
+        //     // edit collision
+        //     // TODO pas sur pour le new ou le create 
+        //          p-e cloner une instance
+        //     // TODO spriteSheet
+        //     const size = new Vector3(1, 1, 1);
+        //     const enemy_pos = this.enemy.mesh.position.clone();
+        //     const direction = this.hero.mesh.position.clone().sub(enemy_pos);
+        //     const length = direction.length()
+        //     direction.normalize();
+        //     direction.setLength(length * 0.1);
+        //     direction.y = 0.5;
+
+        //     const position = new Vector3(enemy_pos.x + direction.x,
+        //         1,
+        //         enemy_pos.z + direction.z);
+        //     this.factory.createBullet(position, size, direction);
+        // }
 
         // TODO render
-        this.debugRenderer.update();
+        // this.debugRenderer.update();
         this.ts.render(delta);
         this.controller.display();
         requestAnimationFrame((t) => this.update(t));

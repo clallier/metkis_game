@@ -96,17 +96,15 @@ export default class MeshFactory {
         const axes = new AxesHelper(1);
         group.add(axes);
 
-        const tx = MeshFactory.createText('x');
-        tx.position.x = 1;
+        const tx = MeshFactory.createText(new Vector3(1, 0, 0), 'x');
         group.add(tx);
 
-        const ty = MeshFactory.createText('y');
-        ty.position.y = 1;
+        const ty = MeshFactory.createText(new Vector3(0, 1, 0), 'y');
         group.add(ty);
-
-        const tz = MeshFactory.createText('z');
-        tz.position.z = 1;
+        
+        const tz = MeshFactory.createText(new Vector3(0, 0, 1), 'z');
         group.add(tz);
+        
         group.position.copy(position);
 
         return group;
