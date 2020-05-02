@@ -3,13 +3,13 @@ import CANNON from 'cannon';
 import {
     Vector3, PlaneGeometry, MeshBasicMaterial, BoxGeometry,
     SpriteMaterial, Sprite, MeshToonMaterial,
-    IcosahedronGeometry, OctahedronGeometry, Texture,
+    IcosahedronGeometry, Texture,
     LinearMipmapLinearFilter, NearestFilter, Mesh, RepeatWrapping
 } from "three";
 
 import {
     ThreeMesh, CannonBody, DeleteAfter, CameraTarget, Controllable,
-    BadBoy, GoodBoy, SpriteAnimation, Damageable, ShootBullets, ApplyImpulse
+    BadBoy, GoodBoy, SpriteAnimation, Damageable, ShootBullets, ApplyImpulse, Collider
 } from "../components/components";
 
 
@@ -167,8 +167,8 @@ export default class EntityFactory {
             position: position,
             fixedRotation: true,
             material: new CANNON.Material({
-                friction: 0.5,
-                restitution: 0.5
+                friction: 0.2,
+                restitution: 0.2
             })
         })
         body.addShape(shape)
@@ -243,7 +243,7 @@ export default class EntityFactory {
             shape: new CANNON.Box(new CANNON.Vec3(.5 * size.x, 1, .5 * size.z)),
             position: position,
             material: new CANNON.Material({
-                friction: 0
+                friction: 0.01
             })
         })
         body.updateMassProperties();
@@ -286,6 +286,7 @@ export default class EntityFactory {
             map: this.createTexture(4, 3)
         });
         const mesh = new Sprite(material);
+        mesh.scale.set(0.8 * size.x, 0.8 * size.y, 1);
         mesh.position.copy(position);
 
         const shape = new CANNON.Sphere(0.1 * size.x);
@@ -295,14 +296,12 @@ export default class EntityFactory {
             fixedRotation: true
         })
         body.addShape(shape);
-        // TODO add it in physicssystem + component
-        // TODO : damages !
-        // body.addEventListener('collide', (e) => this.collide(e))
 
         this.ecsy.createEntity()
             .addComponent(DeleteAfter, { seconds: 1 })
             .addComponent(ThreeMesh, { value: mesh })
             .addComponent(CannonBody, { value: body })
+            .addComponent(Collider)
             .addComponent(ApplyImpulse, {
                 impulse: impulse, 
                 point: body.position

@@ -37,16 +37,16 @@ export default class App {
             .registerSystem(SceneSystem, { scene: this.ts.scene })
 
         this.spriteSheet = new SpriteSheet('resources/textures/raw_tileset01.png', 8, 15, 8, 8);
-        this.ecsy.factory = new EntityFactory(this.ecsy, this.spriteSheet);
+        this.ecsy.game_factory = new EntityFactory(this.ecsy, this.spriteSheet);
 
         window.addEventListener('resize', () => this.resize(), false);
         this.resize()
 
         // axes
-        this.ecsy.factory.createAxes();
+        this.ecsy.game_factory.createAxes();
 
         // text
-        this.ecsy.factory.createDemoText();
+        this.ecsy.game_factory.createDemoText();
     }
 
     async start() {
@@ -62,11 +62,11 @@ export default class App {
             for (let r = 0; r < cols; r++) {
                 const type = data[l][r];
                 const position = new Vector3(-r + x_offset, 1, -l + z_offset);
-                // this.ecsy.factory.createTile(position);
-                this.ecsy.factory.create(type, position);
+                // this.ecsy.game_factory.createTile(position);
+                this.ecsy.game_factory.create(type, position);
             }
         }
-        this.ecsy.factory.createGround(
+        this.ecsy.game_factory.createGround(
             new Vector3(0, -.5, 0.5),
             new Vector3(cols, 1, rows)
         )
@@ -77,37 +77,8 @@ export default class App {
     update(time) {
         let delta = (time - this.lastTime) * 0.001;
         delta = Math.min(delta, 0.1);
-        this.lastTime = time;
-       
+        this.lastTime = time;       
         this.ecsy.execute(delta, time);
-
-        // TODO enemy update
-        // this.enemy.time += delta;
-
-        // if (this.enemy.time > 0.1) {
-        //     this.enemy.time = 0;
-        //     // fire
-        //     // TODO position, velocity
-        //     // add to physics
-        //     // add to render
-        //     // edit collision
-        //     // TODO pas sur pour le new ou le create 
-        //          p-e cloner une instance
-        //     // TODO spriteSheet
-        //     const size = new Vector3(1, 1, 1);
-        //     const enemy_pos = this.enemy.mesh.position.clone();
-        //     const direction = this.hero.mesh.position.clone().sub(enemy_pos);
-        //     const length = direction.length()
-        //     direction.normalize();
-        //     direction.setLength(length * 0.1);
-        //     direction.y = 0.5;
-
-        //     const position = new Vector3(enemy_pos.x + direction.x,
-        //         1,
-        //         enemy_pos.z + direction.z);
-        //     this.factory.createBullet(position, size, direction);
-        // }
-
         // TODO render
         // this.debugRenderer.update();
         this.ts.render(delta);

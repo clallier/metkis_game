@@ -18,10 +18,10 @@ export default class SpriteAnimationSystem extends System {
             // update time
             animation.time += delta;
 
-            if (body && body.velocity.x < -0.01) {
+            if (body && body.velocity.x < -0.2) {
                 this.setAnimation(mesh, animation, animation.move_right);
             }
-            if (body && body.velocity.x > 0.01) {
+            if (body && body.velocity.x > 0.2) {
                 this.setAnimation(mesh, animation, animation.move_left);
             }
 
