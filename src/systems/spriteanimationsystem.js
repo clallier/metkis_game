@@ -7,7 +7,6 @@ export default class SpriteAnimationSystem extends System {
     }
 
     init() {
-        console.log('init from SpriteAnimationSytem')
     }
 
     execute(delta) {

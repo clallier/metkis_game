@@ -6,6 +6,7 @@ export class Controllable extends TagComponent { }
 export class BadBoy extends TagComponent { }
 export class GoodBoy extends TagComponent { }
 export class Collider extends TagComponent { }
+export class Bullet extends TagComponent { }
 
 export class DeleteAfter extends Component {
     constructor() {
@@ -94,6 +95,22 @@ export class Damageable extends Component {
     }
 
     reset() {
-        this.hp = 10;
+        this.hp = 5;
+    }
+ }
+
+ export class SpawnEnemies extends Component {
+    constructor() {
+        super();
+        this.reset();
+    }
+
+    reset() {
+        this.time = 0;
+        this.delay = 1;
+        this.emitting = true; 
+        this.total_time = 0;
+        this.duration = 10;
+        this.cooldown = 25;
     }
  }

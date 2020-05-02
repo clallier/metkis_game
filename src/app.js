@@ -16,7 +16,12 @@ import EntityFactory from './game/entityfactory';
 import CameraSystem from './systems/camerasystem';
 import SpriteAnimationSystem from './systems/spriteanimationsystem';
 import WeaponSystem from './systems/weaponsystem';
+import WavesControllerSystem from './systems/wavescontrollersystem';
 
+// TODO 2 : tower
+// TODO 4 : pickup (ex: money)
+// TODO 3 : activate towers
+// TODO 5: tower animations (creation + rotation) 
 
 export default class App {
     constructor() {
@@ -32,6 +37,7 @@ export default class App {
             .registerSystem(TimerSystem)
             .registerSystem(SpriteAnimationSystem)
             .registerSystem(WeaponSystem)
+            .registerSystem(WavesControllerSystem)
             .registerSystem(CameraSystem, { camera: this.ts.camera, control: this.ts.control })
             .registerSystem(PhysicSystem, { cannon_world: this.world, controller: this.controller })
             .registerSystem(SceneSystem, { scene: this.ts.scene })

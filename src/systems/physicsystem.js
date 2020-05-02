@@ -47,8 +47,7 @@ export default class PhysicSystem extends System {
 
         this.queries.entities.results.forEach(e => {
             const body = e.getComponent(CannonBody).value;
-            if (body.position.y < -20) {
-                console.log('goodbye!')
+            if (body.position.y < -40) {
                 e.remove()
             }
         })
@@ -96,13 +95,20 @@ export default class PhysicSystem extends System {
         const entity_2 = body_2.entity_data;
         const damageable_2 = entity_2.getMutableComponent(Damageable);
 
-        // TODO DamageSystem
-        if(damageable_2) {
-            damageable_2.hp -= 1;
-            if(damageable_2.hp <= 0) {
-                entity_2.addComponent(DeleteAfter)
+        const damageables = [damageable_1, damageable_2]
+        const entities = [entity_1, entity_2]
+
+        // TODO DamageSystem + cleanup
+        for(let i=0; i<damageables.length; i++) {
+            const d = damageables[i]; 
+            if(d != null) {
+                d.hp -= 1;
+                if(d.hp <= 0) {
+                    entities[i].addComponent(DeleteAfter);
+                }
             }
         }
+            
     }
 }
 

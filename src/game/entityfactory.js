@@ -9,9 +9,11 @@ import {
 
 import {
     ThreeMesh, CannonBody, DeleteAfter, CameraTarget, Controllable,
-    BadBoy, GoodBoy, SpriteAnimation, Damageable, ShootBullets, ApplyImpulse, Collider
+    BadBoy, GoodBoy, SpriteAnimation, Damageable, ShootBullets, 
+    ApplyImpulse, Collider, SpawnEnemies, Bullet
 } from "../components/components";
 
+import constants from "../game/constants.json";
 
 export default class EntityFactory {
     constructor(ecsy, spriteSheet) {
@@ -55,6 +57,9 @@ export default class EntityFactory {
         }
         if (type == 6) {
             this.createEnemy(position)
+        }
+        if (type == 7) {
+            this.createSpawnPoint(position)
         }
     }
 
@@ -121,7 +126,10 @@ export default class EntityFactory {
             type: CANNON.Body.STATIC,
             mass: 0,
             position: position,
-            material: new CANNON.Material({ restitution: 1 })
+            material: new CANNON.Material({ 
+                friction: constants.friction.block,
+                restitution: constants.restitution.block
+            })
         })
         body.updateMassProperties();
         body.addShape(box)
@@ -167,8 +175,8 @@ export default class EntityFactory {
             position: position,
             fixedRotation: true,
             material: new CANNON.Material({
-                friction: 0.2,
-                restitution: 0.2
+                friction: constants.friction.player,
+                restitution: constants.restitution.player
             })
         })
         body.addShape(shape)
@@ -225,7 +233,7 @@ export default class EntityFactory {
 
         const sphere = new CANNON.Sphere(0.4 * size.x);
         const body = new CANNON.Body({
-            mass: 1,
+            mass: 0.1,
             position: position,
             material: new CANNON.Material({ restitution: 0.9 })
         })
@@ -243,13 +251,54 @@ export default class EntityFactory {
             shape: new CANNON.Box(new CANNON.Vec3(.5 * size.x, 1, .5 * size.z)),
             position: position,
             material: new CANNON.Material({
-                friction: 0.01
+                friction: constants.friction.ground
             })
         })
         body.updateMassProperties();
 
         this.ecsy.createEntity()
             .addComponent(CannonBody, { value: body })
+    }
+
+    createSpawnPoint(position = new Vector3(), size = new Vector3(1, 1, 1)) {
+        // TODO if it stays a box => merge code with createBlock
+        const geometry = new BoxGeometry(size.x, size.y, size.z);
+        const material0 = new MeshBasicMaterial({
+            map: this.createTexture(4, 2)
+        })
+        const material1 = new MeshBasicMaterial({
+            map: this.createTexture(6, 1)
+        })
+
+        const materials = [];
+        materials.push(material1); // left
+        materials.push(material1); // right
+        materials.push(material0); // top
+        materials.push(material0); // bottom
+        materials.push(material1); // back
+        materials.push(material1); // front
+        const mesh = new Mesh(geometry, materials);
+        mesh.position.copy(position);
+
+        const box_size = new CANNON.Vec3(0.5 * size.x, 0.5 * size.y, 0.5 * size.z);
+        const box = new CANNON.Box(box_size);
+
+        const body = new CANNON.Body({
+            type: CANNON.Body.STATIC,
+            mass: 0,
+            position: position,
+            material: new CANNON.Material({ 
+                friction: constants.friction.block,
+                restitution: constants.restitution.block
+            })
+        })
+        body.updateMassProperties();
+        body.addShape(box)
+
+        this.ecsy.createEntity()
+            .addComponent(ThreeMesh, { value: mesh })
+            .addComponent(CannonBody, { value: body })
+            .addComponent(SpawnEnemies)
     }
 
     createEnemy(position = new Vector3(), size = new Vector3(1, 1, 1)) {
@@ -260,19 +309,17 @@ export default class EntityFactory {
         mesh.scale.set(0.8 * size.x, 0.8 * size.y, 1);
         mesh.position.copy(position);
 
-        const box_size = new CANNON.Vec3(0.4 * size.x, 0.4 * size.y, 0.4 * size.z);
-        const box = new CANNON.Box(box_size);
-
+        const sphere = new CANNON.Sphere(0.4 * size.x);
         const body = new CANNON.Body({
             mass: 1,
             position: position,
             fixedRotation: true,
-            material: new CANNON.Material({
-                friction: 0,
-                restitution: 0.9
+            material: new CANNON.Material({ 
+                friction: 0.5,
+                restitution: 0.9 
             })
         })
-        body.addShape(box);
+        body.addShape(sphere)
 
         this.ecsy.createEntity()
             .addComponent(ThreeMesh, { value: mesh })
