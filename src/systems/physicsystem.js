@@ -48,7 +48,7 @@ export default class PhysicSystem extends System {
         this.queries.entities.results.forEach(e => {
             const body = e.getComponent(CannonBody).value;
             if (body.position.y < -40) {
-                e.remove()
+                e.addComponent(DeleteAfter)
             }
         })
 

@@ -10,7 +10,7 @@ import {
 import {
     ThreeMesh, CannonBody, DeleteAfter, CameraTarget, Controllable,
     GroupEnemy, GroupPlayer, SpriteAnimation, Damageable, DistanceWeapon, 
-    ApplyImpulse, Collider, SpawnEnemies, MeshAnimation
+    ApplyImpulse, Collider, SpawnEnemies, MeshAnimation, Drop
 } from "../components/components";
 
 import constants from "../game/constants.json";
@@ -164,8 +164,27 @@ export default class EntityFactory {
         mesh.scale.set(0.8 * size.x, 0.8 * size.y, 1);
         mesh.position.copy(position);
 
+        const box_size = new CANNON.Vec3(0.4 * size.x, 0.4 * size.y, 0.4 * size.z);
+        const shape = new CANNON.Box(box_size);
+
+        const body = new CANNON.Body({
+            mass: 1,
+            position: position,
+            fixedRotation: true,
+            material: new CANNON.Material({
+                friction: constants.friction.player,
+                restitution: constants.restitution.player
+            }),
+            // put it in neutral group
+            collisionFilterGroup: COLLISION_GROUP.NEUTRAL,
+            // it can collide with player group
+            collisionFilterMask: COLLISION_GROUP.PLAYER | COLLISION_GROUP.NEUTRAL 
+        })
+        body.addShape(shape)
+
         this.ecsy.createEntity()
             .addComponent(ThreeMesh, { value: mesh })
+            .addComponent(CannonBody, { value: body })
     }
 
     createPlayer(position = new Vector3(), size = new Vector3(1, 1, 1)) {
@@ -361,9 +380,11 @@ export default class EntityFactory {
         })
         body.addShape(sphere)
 
+        const loot = (position) => this.createItem(position);
         this.ecsy.createEntity()
             .addComponent(ThreeMesh, { value: mesh })
             .addComponent(CannonBody, { value: body })
+            .addComponent(Drop, {value: loot})
             .addComponent(GroupEnemy)
             .addComponent(Damageable)
     }
@@ -425,8 +446,8 @@ export default class EntityFactory {
         body.updateMassProperties();
         body.addShape(box);
 
-        const idle = turret.idleAnimation();
-        const attack = turret.attackAnimation();
+        const idle = (time) => turret.idleAnimation(time);
+        const attack = (time, target) => turret.attackAnimation(time, target);
         const current_animation = idle;
 
         this.ecsy.createEntity()

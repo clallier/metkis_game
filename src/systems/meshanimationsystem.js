@@ -12,6 +12,11 @@ export default class MeshAnimationSystem extends System {
     execute(delta) {
 
         // change animation
+        // TODO voir si on garde ce composant (ChangeAnimation) 
+        // car le weapon system pourrait modifier directement le composant MeshAnimation 
+        // en settant 1) l'animation courante sur attack et 2) la target
+        // idem pour repasser en animation idle.
+        // Ces animations sont censées être definies
         this.queries.change_animation.added.forEach(e => {
             const mesh_anim = e.getComponent(MeshAnimation);
             const change = e.getComponent(ChangeAnimation);

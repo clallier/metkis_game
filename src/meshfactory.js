@@ -84,7 +84,8 @@ export default class MeshFactory {
 
         const material = new MeshToonMaterial({
             color: color,
-            shininess: 0.2
+            shininess: 0.2,
+            flatShading: true
         });
 
         const mesh = new Mesh(geometry, material);

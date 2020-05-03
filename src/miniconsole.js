@@ -32,7 +32,7 @@ export default class MiniConsole {
 
         // Use JSON to transform objects, all others display normally
         items.forEach((item, i) => {
-            items[i] = (typeof item === 'object' ? JSON.stringify(item, null, 2) : item);
+            items[i] = (item != null && typeof item === 'object' ? JSON.stringify(item, null, 2) : item);
         });
 
         this.output.innerHTML += `${level}${items.join(' ')} <br />`;

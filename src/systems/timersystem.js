@@ -1,6 +1,7 @@
 import { System } from "ecsy";
 import { DeleteAfter } from "../components/components";
 
+// TODO rename to alteration system ? (it alters entites)
 export default class TimerSystem extends System {
     constructor(world, attributes) {
         super(world, attributes);

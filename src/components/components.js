@@ -148,3 +148,15 @@ export class Damageable extends Component {
         this.cooldown = 25;
     }
  }
+
+ export class Drop extends Component {
+    constructor() {
+        super();
+        this.reset();
+    }
+
+    reset() {
+        // the item to drop on death
+        this.value = null;
+    }
+ }

@@ -18,9 +18,9 @@ import SpriteAnimationSystem from './systems/spriteanimationsystem';
 import WeaponSystem from './systems/weaponsystem';
 import WavesControllerSystem from './systems/wavescontrollersystem';
 import MeshAnimationSystem from './systems/meshanimationsystem';
+import DropSystem from './systems/dropsystem';
 
 // main inspiration: https://twitter.com/metkis/status/1024058489860186112
-// TODO 3: animations (ex: orientable turret)
 // TODO 4: pickup (ex: money)
 // TODO 3: activate towers
 // TODO 5: tower animations (creation + rotation) 
@@ -41,6 +41,7 @@ export default class App {
             .registerSystem(MeshAnimationSystem)
             .registerSystem(WeaponSystem)
             .registerSystem(WavesControllerSystem)
+            .registerSystem(DropSystem)
             .registerSystem(CameraSystem, { camera: this.ts.camera, control: this.ts.control })
             .registerSystem(PhysicSystem, { cannon_world: this.world, controller: this.controller })
             .registerSystem(SceneSystem, { scene: this.ts.scene })

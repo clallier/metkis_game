@@ -40,21 +40,17 @@ export default class Turret {
         this.mesh.position.copy(position);
     }
 
-    idleAnimation() {
-        return (time) => {
-            const head = this.mesh.getObjectByName('head');
-            const gun = head.getObjectByName('gun');
-            gun.rotation.y = 0;
-            head.rotation.y = Math.cos(time);
-        }
+    idleAnimation(time) {
+        const head = this.mesh.getObjectByName('head');
+        const gun = head.getObjectByName('gun');
+        gun.rotation.y = 0;
+        head.rotation.y = Math.cos(time);
     }
 
-    attackAnimation() {
-        return (time, target) => {
-            const head = this.mesh.getObjectByName('head');
-            const gun = head.getObjectByName('gun');
-            gun.rotation.y = time * 10;
-            head.lookAt(target);
-        }
+    attackAnimation(time, target) {
+        const head = this.mesh.getObjectByName('head');
+        const gun = head.getObjectByName('gun');
+        gun.rotation.y = time * 10;
+        head.lookAt(target);
     }
 }
