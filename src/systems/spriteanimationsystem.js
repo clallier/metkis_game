@@ -13,41 +13,41 @@ export default class SpriteAnimationSystem extends System {
         this.queries.animations.results.forEach(e => {
             const mesh = e.getComponent(ThreeMesh).value;
             const body = e.getComponent(CannonBody).value;
-            let animation = e.getMutableComponent(SpriteAnimation);
+            let sprite_anim = e.getMutableComponent(SpriteAnimation);
             // update time
-            animation.time += delta;
+            sprite_anim.time += delta;
 
             if (body && body.velocity.x < -0.2) {
-                this.setAnimation(mesh, animation, animation.move_right);
+                this.setAnimation(mesh, sprite_anim, sprite_anim.move_right);
             }
             if (body && body.velocity.x > 0.2) {
-                this.setAnimation(mesh, animation, animation.move_left);
+                this.setAnimation(mesh, sprite_anim, sprite_anim.move_left);
             }
 
             // TODO animation time, animation_name
-            if (animation.time > 1) {
-                this.nextFrame(animation);
-                this.setFrame(mesh, animation);
+            if (sprite_anim.time > 1) {
+                this.nextFrame(sprite_anim);
+                this.setFrame(mesh, sprite_anim);
             }
         })
     }
 
 
-    setAnimation(mesh, animation, animation_name) {
-        if (animation.current_animation == animation_name) return;
-        animation.current_animation = animation_name;
-        this.setFrame(mesh, animation);
+    setAnimation(mesh, sprite_anim, new_animation) {
+        if (sprite_anim.current_animation == new_animation) return;
+        sprite_anim.current_animation = new_animation;
+        this.setFrame(mesh, sprite_anim);
     }
 
-    nextFrame(animation) {
-        animation.frame += 1;
-        animation.time = 0;
-        if (animation.frame > 1)
-            animation.frame = 0;
+    nextFrame(sprite_anim) {
+        sprite_anim.frame += 1;
+        sprite_anim.time = 0;
+        if (sprite_anim.frame > 1)
+            sprite_anim.frame = 0;
     }
 
-    setFrame(mesh, animation) {
-        mesh.material.map = animation.current_animation[animation.frame];
+    setFrame(mesh, sprite_anim) {
+        mesh.material.map = sprite_anim.current_animation[sprite_anim.frame];
         mesh.material.map.needsUpdate = true;
         mesh.material.needsUpdate = true;
     }

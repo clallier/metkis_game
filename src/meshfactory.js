@@ -129,45 +129,4 @@ export default class MeshFactory {
 
         return group;
     }
-
-    static createTurret(position = new Vector3()) {
-        // gun
-        const gun = this.createCylinder(.2, .2, .8, 4, 
-            [0, .3, 0], 0xffffff);
-        gun.name = 'gun';
-        gun.rotation.x = Math.PI / 2;
-        
-        const marker = this.createCylinder(.3, .3, .2, 4, 
-            [0, -.2, 0], 0x88ffff);
-        gun.add(marker);
-
-        const left_arm = this.createCylinder(.1, .2, .4, 4, 
-            [0.2, .2, 0], 0xff8888);
-        gun.add(left_arm);
-       
-        const right_arm = this.createCylinder(.1, .2, .4, 4, 
-            [-0.2, .2, 0], 0xff8888);
-        gun.add(right_arm);
-
-        // base
-        const group = new Group();
-        const base = this.createCylinder(.4, .4, .2, 8, 
-            [0, -.4, 0], 0x88ffff)        
-        group.add(base);
-
-        const foot = this.createCylinder(.2, .3, .6, 8, 
-            [0, 0, 0], 0xffffff)        
-        group.add(foot);
-
-        // head
-        const head = new Group(); 
-        head.name = 'head';
-        head.add(gun);
-        group.add(head);
-
-        group.position.copy(position);
-
-        return group;
-    }
-
 }

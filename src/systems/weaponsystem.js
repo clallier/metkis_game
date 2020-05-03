@@ -1,6 +1,6 @@
 import { System } from "ecsy";
 import {
-    GroupPlayer, GroupEnemy, DistanceWeapon, ThreeMesh
+    GroupPlayer, GroupEnemy, DistanceWeapon, ThreeMesh, ChangeAnimation, MeshAnimation
 } from "../components/components";
 import { Vector3 } from "three";
 
@@ -9,7 +9,7 @@ export default class WeaponSystem extends System {
         super(world, attributes);
     }
 
-    init() {}
+    init() { }
 
     execute(delta) {
         // enemies
@@ -18,7 +18,7 @@ export default class WeaponSystem extends System {
         // distance weapons
         this.queries.distance_weapons.results.forEach(e => {
             const weapon = e.getMutableComponent(DistanceWeapon);
-            
+
             // update time
             weapon.time += delta;
             weapon.time_to_next_target += delta;
@@ -28,35 +28,40 @@ export default class WeaponSystem extends System {
                 weapon.time = 0;
 
                 // if no bad boys, returns 
-                if(enemies.length < 1) return;
+                if (enemies.length < 1) return;
 
                 // permit to compute distances to current entity 
                 const p0 = e.getComponent(ThreeMesh).value.position.clone();
-                
+
                 // sort bad boys in order to find the closest
-                if(weapon.target == null || 
-                    weapon.time_to_next_target >= weapon.delay_to_next_target)
+                if (weapon.target == null || 
+                    weapon.target.hasComponent(ThreeMesh) == false ||
+                    weapon.time_to_next_target >= weapon.delay_to_next_target) {
                     weapon.time_to_next_target = 0;
                     this.sortByDistance(enemies, p0);
-
-                // closest enemy position
-                weapon.target = enemies[0];
+                    // closest enemy position
+                    weapon.target = enemies[0];
+                }
                 const p1 = weapon.target.getComponent(ThreeMesh).value.position.clone();
-        
+
 
                 // impulse
-                // TODO customise using component: impulse relative to distance
+                // TODO customise using component: impulse speed, y, relative to distance
                 const impulse = new Vector3().subVectors(p1, p0);
-                    // .setLength(shootBullets.impulse_speed);
-                    // TODO y += shootBullets.impulse_y
-                    // .setY(shootBullets.impulse_y)
-   
-                this.world.game_factory.createBullet(p0, impulse);
+                // .setLength(shootBullets.impulse_speed);
+                // TODO y += shootBullets.impulse_y
+                // .setY(shootBullets.impulse_y)
 
-                const mesh = e.getComponent(ThreeMesh).value;
-                // TODO applyAngle
-                const head = mesh.getObjectByName('head');
-                head.lookAt(new Vector3(p1.x, 1, p1.z));
+                // TODO set animation + target
+                this.world.game_factory.createBullet(p0, impulse);
+                const mesh_anim = e.getComponent(MeshAnimation);
+                if(mesh_anim) {
+                    e.addComponent(ChangeAnimation, {
+                        current_animation: mesh_anim.attack,
+                        current_animation_duration: 0.5,
+                        target: new Vector3(p1.x, 1, p1.z)
+                    })
+                }
             }
         })
     }

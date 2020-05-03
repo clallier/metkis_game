@@ -14,6 +14,7 @@ import {
 } from "../components/components";
 
 import constants from "../game/constants.json";
+import Turret from './turret';
 
 // https://github.com/schteppe/cannon.js/blob/master/demos/collisionFilter.html
 const COLLISION_GROUP = {
@@ -116,7 +117,7 @@ export default class EntityFactory {
         const material0 = new MeshBasicMaterial({
             map: this.createTexture(3, 10)
         })
-        const material1 = new MeshBasicMaterial({
+        const material1 = new MeshToonMaterial({
             map: this.createTexture(2, 10)
         })
 
@@ -403,8 +404,7 @@ export default class EntityFactory {
     }
 
     createTurret(position = new Vector3(), size = new Vector3(1, 1, 1)) {
-        const mesh = MeshFactory.createTurret(position);
-
+        const turret = new Turret(position); 
         const box_size = new CANNON.Vec3(0.5 * size.x, 0.5 * size.y, 0.5 * size.z);
         const box = new CANNON.Box(box_size);
 
@@ -423,13 +423,21 @@ export default class EntityFactory {
         })
 
         body.updateMassProperties();
-        body.addShape(box)
+        body.addShape(box);
+
+        const idle = turret.idleAnimation();
+        const attack = turret.attackAnimation();
+        const current_animation = idle;
 
         this.ecsy.createEntity()
-            .addComponent(ThreeMesh, { value: mesh })
+            .addComponent(ThreeMesh, { value: turret.mesh })
             .addComponent(CannonBody, { value: body })
             .addComponent(GroupPlayer)
             .addComponent(DistanceWeapon)
-            .addComponent(MeshAnimation)
+            .addComponent(MeshAnimation, {
+                idle,
+                attack,
+                current_animation
+            })
     }
 } 

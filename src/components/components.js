@@ -7,7 +7,6 @@ export class GroupEnemy extends TagComponent { }
 export class GroupPlayer extends TagComponent { }
 export class Collider extends TagComponent { }
 export class Bullet extends TagComponent { }
-export class MeshAnimation extends TagComponent { }
 
 export class DeleteAfter extends Component {
     constructor() {
@@ -57,9 +56,40 @@ export class SpriteAnimation extends Component {
         this.frame = 0;
         this.move_left = [];
         this.move_right = [];
-        this.default = [];
+        this.idle = [];
+        // TODO add more animations
     }
 }
+
+export class MeshAnimation extends Component {
+    constructor() {
+        super();
+        this.reset();
+    }
+
+    reset() {
+        this.time = 0;
+        this.current_animation = null;
+        this.current_animation_duration = 0;
+        this.target = null;
+        this.attack = null;
+        this.idle = null;
+        // TODO add more animations
+    }
+ }
+
+ export class ChangeAnimation extends Component {
+    constructor() {
+        super();
+        this.reset();
+    }
+
+    reset() {
+        this.current_animation = null;
+        this.current_animation_duration = 0;
+        this.target = null;
+    }
+ }
 
 // TODO weapon component 
 export class DistanceWeapon extends Component {
@@ -111,7 +141,7 @@ export class Damageable extends Component {
 
     reset() {
         this.time = 0;
-        this.delay = 0.1;
+        this.delay = 0.5;
         this.emitting = true; 
         this.total_time = 0;
         this.duration = 10;
