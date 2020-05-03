@@ -20,7 +20,7 @@ export default class ThreeScene {
         this.camera.position.z = -8;
 
         this.control = new OrbitControls(this.camera, this.canvas);
-        this.control.enabled = false;
+        this.control.enabled = true;
         this.scene = new Scene();
 
         this.lights = [];

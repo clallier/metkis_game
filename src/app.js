@@ -17,10 +17,12 @@ import CameraSystem from './systems/camerasystem';
 import SpriteAnimationSystem from './systems/spriteanimationsystem';
 import WeaponSystem from './systems/weaponsystem';
 import WavesControllerSystem from './systems/wavescontrollersystem';
+import MeshAnimationSystem from './systems/meshanimationsystem';
 
-// TODO 2 : tower
-// TODO 4 : pickup (ex: money)
-// TODO 3 : activate towers
+// main inspiration: https://twitter.com/metkis/status/1024058489860186112
+// TODO 3: animations (ex: orientable turret)
+// TODO 4: pickup (ex: money)
+// TODO 3: activate towers
 // TODO 5: tower animations (creation + rotation) 
 
 export default class App {
@@ -36,6 +38,7 @@ export default class App {
         this.ecsy = new World()
             .registerSystem(TimerSystem)
             .registerSystem(SpriteAnimationSystem)
+            .registerSystem(MeshAnimationSystem)
             .registerSystem(WeaponSystem)
             .registerSystem(WavesControllerSystem)
             .registerSystem(CameraSystem, { camera: this.ts.camera, control: this.ts.control })
@@ -68,6 +71,7 @@ export default class App {
             for (let r = 0; r < cols; r++) {
                 const type = data[l][r];
                 const position = new Vector3(-r + x_offset, 1, -l + z_offset);
+                // TODO new tile sprite
                 // this.ecsy.game_factory.createTile(position);
                 this.ecsy.game_factory.create(type, position);
             }
@@ -88,7 +92,7 @@ export default class App {
         // TODO render
         // this.debugRenderer.update();
         this.ts.render(delta);
-        this.controller.display();
+        if(this.controller) this.controller.display();
         requestAnimationFrame((t) => this.update(t));
     }
 

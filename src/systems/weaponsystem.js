@@ -1,6 +1,6 @@
 import { System } from "ecsy";
 import {
-    GoodBoy, BadBoy, ShootBullets, ThreeMesh
+    GroupPlayer, GroupEnemy, DistanceWeapon, ThreeMesh
 } from "../components/components";
 import { Vector3 } from "three";
 
@@ -9,51 +9,60 @@ export default class WeaponSystem extends System {
         super(world, attributes);
     }
 
-    init() { }
+    init() {}
 
     execute(delta) {
-        // bad_boys
-        const bad_boys = this.queries.bad_boys.results;
+        // enemies
+        const enemies = this.queries.enemies.results;
 
-        // good boy bullets
-        this.queries.good_boy_bullets.results.forEach(e => {
-            const shootBullets = e.getMutableComponent(ShootBullets);
+        // distance weapons
+        this.queries.distance_weapons.results.forEach(e => {
+            const weapon = e.getMutableComponent(DistanceWeapon);
             
             // update time
-            shootBullets.time += delta;
+            weapon.time += delta;
+            weapon.time_to_next_target += delta;
 
             // it's time to spawn a bullet
-            if (shootBullets.time >= shootBullets.delay) {
-                shootBullets.time = 0;
+            if (weapon.time >= weapon.delay) {
+                weapon.time = 0;
 
                 // if no bad boys, returns 
-                if(bad_boys.length < 1) return;
+                if(enemies.length < 1) return;
 
                 // permit to compute distances to current entity 
                 const p0 = e.getComponent(ThreeMesh).value.position.clone();
                 
                 // sort bad boys in order to find the closest
-                this.sortByDistance(bad_boys, p0);
+                if(weapon.target == null || 
+                    weapon.time_to_next_target >= weapon.delay_to_next_target)
+                    weapon.time_to_next_target = 0;
+                    this.sortByDistance(enemies, p0);
 
                 // closest enemy position
-                const p1 = bad_boys[0].getComponent(ThreeMesh).value.position.clone();
+                weapon.target = enemies[0];
+                const p1 = weapon.target.getComponent(ThreeMesh).value.position.clone();
+        
 
                 // impulse
                 // TODO customise using component: impulse relative to distance
-                const impulse = p1.sub(p0)
-                    .setY(shootBullets.impulse_y)
-                    .setLength(shootBullets.impulse_speed)
+                const impulse = new Vector3().subVectors(p1, p0);
+                    // .setLength(shootBullets.impulse_speed);
+                    // TODO y += shootBullets.impulse_y
+                    // .setY(shootBullets.impulse_y)
    
-                // offset
-                const offset = impulse.clone().setLength(0.5);
+                this.world.game_factory.createBullet(p0, impulse);
 
-                const bullet_pos = new Vector3(p0.x + offset.x, 1, p0.z + offset.z);
-                this.world.game_factory.createBullet(bullet_pos, impulse);
+                const mesh = e.getComponent(ThreeMesh).value;
+                // TODO applyAngle
+                const head = mesh.getObjectByName('head');
+                head.lookAt(new Vector3(p1.x, 1, p1.z));
             }
         })
     }
 
 
+    // TODO : in sight
     sortByDistance(entity_list, p0) {
         let p1 = null, p2 = null, d1 = 0, d2 = 0;
         entity_list.sort((e1, e2) => {
@@ -67,10 +76,10 @@ export default class WeaponSystem extends System {
 }
 
 WeaponSystem.queries = {
-    bad_boys: {
-        components: [BadBoy, ThreeMesh]
+    enemies: {
+        components: [GroupEnemy, ThreeMesh]
     },
-    good_boy_bullets: {
-        components: [ShootBullets, GoodBoy, ThreeMesh]
+    distance_weapons: {
+        components: [DistanceWeapon, GroupPlayer, ThreeMesh]
     }
 }

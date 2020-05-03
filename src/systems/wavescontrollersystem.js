@@ -1,6 +1,6 @@
 import { System } from "ecsy";
 import {
-    SpawnEnemies, ThreeMesh, BadBoy
+    SpawnEnemies, ThreeMesh, GroupEnemy
 } from "../components/components";
 
 export default class WavesControllerSystem extends System {
@@ -42,7 +42,7 @@ export default class WavesControllerSystem extends System {
                 if (c.emitting && c.time >= c.delay) {
                     c.time = 0;
                     const position = e.getComponent(ThreeMesh).value.position;
-                    position.z -= .5;
+                    position.z -= 0.8;
                     position.x += Math.random() * .4 - .2;
                     this.world.game_factory.createEnemy(position);
                 }
@@ -56,6 +56,6 @@ WavesControllerSystem.queries = {
         components: [SpawnEnemies, ThreeMesh]
     },
     enemies: {
-        components: [BadBoy, ThreeMesh]
+        components: [GroupEnemy, ThreeMesh]
     }
 }

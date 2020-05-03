@@ -3,10 +3,11 @@ import { Component, TagComponent } from "ecsy";
 export class CameraTarget extends TagComponent { }
 export class Controllable extends TagComponent { }
 
-export class BadBoy extends TagComponent { }
-export class GoodBoy extends TagComponent { }
+export class GroupEnemy extends TagComponent { }
+export class GroupPlayer extends TagComponent { }
 export class Collider extends TagComponent { }
 export class Bullet extends TagComponent { }
+export class MeshAnimation extends TagComponent { }
 
 export class DeleteAfter extends Component {
     constructor() {
@@ -61,7 +62,7 @@ export class SpriteAnimation extends Component {
 }
 
 // TODO weapon component 
-export class ShootBullets extends Component {
+export class DistanceWeapon extends Component {
     constructor() {
         super();
         this.reset();
@@ -69,10 +70,13 @@ export class ShootBullets extends Component {
 
     reset() {
         // in s
-        this.time = 0
+        this.time = 10;
         this.delay = 0.1;
         this.impulse_speed = 5;
-        this.impulse_y = 0; 
+        this.impulse_y = 0;
+        this.target = null;
+        this.time_to_next_target = 10;
+        this.delay_to_next_target = 0.5;
     }
 }
 
@@ -107,7 +111,7 @@ export class Damageable extends Component {
 
     reset() {
         this.time = 0;
-        this.delay = 1;
+        this.delay = 0.1;
         this.emitting = true; 
         this.total_time = 0;
         this.duration = 10;

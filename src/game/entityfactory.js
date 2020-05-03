@@ -9,11 +9,19 @@ import {
 
 import {
     ThreeMesh, CannonBody, DeleteAfter, CameraTarget, Controllable,
-    BadBoy, GoodBoy, SpriteAnimation, Damageable, ShootBullets, 
-    ApplyImpulse, Collider, SpawnEnemies, Bullet
+    GroupEnemy, GroupPlayer, SpriteAnimation, Damageable, DistanceWeapon, 
+    ApplyImpulse, Collider, SpawnEnemies, MeshAnimation
 } from "../components/components";
 
 import constants from "../game/constants.json";
+
+// https://github.com/schteppe/cannon.js/blob/master/demos/collisionFilter.html
+const COLLISION_GROUP = {
+    PLAYER: 1,
+    NEUTRAL: 2,
+    ENEMY: 4,
+    ALL: 1|2|4
+}
 
 export default class EntityFactory {
     constructor(ecsy, spriteSheet) {
@@ -47,7 +55,7 @@ export default class EntityFactory {
             this.createItem(position)
         }
         else if (type == 3) {
-            this.createHero(position)
+            this.createPlayer(position)
         }
         if (type == 4) {
             this.createCrate(position)
@@ -60,6 +68,9 @@ export default class EntityFactory {
         }
         if (type == 7) {
             this.createSpawnPoint(position)
+        }
+        if (type == 8) {
+            this.createTurret(position)
         }
     }
 
@@ -129,7 +140,11 @@ export default class EntityFactory {
             material: new CANNON.Material({ 
                 friction: constants.friction.block,
                 restitution: constants.restitution.block
-            })
+            }),
+            // put it in neutral group
+            collisionFilterGroup: COLLISION_GROUP.NEUTRAL,
+            // it can collide with all groups
+            collisionFilterMask: COLLISION_GROUP.ALL
         })
         body.updateMassProperties();
         body.addShape(box)
@@ -152,7 +167,7 @@ export default class EntityFactory {
             .addComponent(ThreeMesh, { value: mesh })
     }
 
-    createHero(position = new Vector3(), size = new Vector3(1, 1, 1)) {
+    createPlayer(position = new Vector3(), size = new Vector3(1, 1, 1)) {
         const move_right = []
         move_right.push(this.createTexture(0, 8));
         move_right.push(this.createTexture(7, 7));
@@ -177,7 +192,11 @@ export default class EntityFactory {
             material: new CANNON.Material({
                 friction: constants.friction.player,
                 restitution: constants.restitution.player
-            })
+            }),
+            // put it in player group
+            collisionFilterGroup: COLLISION_GROUP.PLAYER,
+            // it can collide with all groups
+            collisionFilterMask: COLLISION_GROUP.ALL
         })
         body.addShape(shape)
 
@@ -191,8 +210,7 @@ export default class EntityFactory {
                 move_right,
                 current_animation
             })
-            .addComponent(GoodBoy)
-            .addComponent(ShootBullets)
+            .addComponent(GroupPlayer)
     }
 
     createCrate(position = new Vector3(), size = new Vector3(1, 1, 1)) {
@@ -213,7 +231,11 @@ export default class EntityFactory {
 
         const body = new CANNON.Body({
             mass: 0.01,
-            position: position
+            position: position,
+            // put it in neutral group
+            collisionFilterGroup: COLLISION_GROUP.NEUTRAL,
+            // it can collide with all groups
+            collisionFilterMask: COLLISION_GROUP.ALL
         })
         body.addShape(box)
 
@@ -235,7 +257,11 @@ export default class EntityFactory {
         const body = new CANNON.Body({
             mass: 0.1,
             position: position,
-            material: new CANNON.Material({ restitution: 0.9 })
+            material: new CANNON.Material({ restitution: 0.9 }),
+            // put it in neutral group
+            collisionFilterGroup: COLLISION_GROUP.NEUTRAL,
+            // it can collide with all groups
+            collisionFilterMask: COLLISION_GROUP.ALL
         })
         body.addShape(sphere)
 
@@ -252,7 +278,11 @@ export default class EntityFactory {
             position: position,
             material: new CANNON.Material({
                 friction: constants.friction.ground
-            })
+            }),
+            // put it in neutral group
+            collisionFilterGroup: COLLISION_GROUP.NEUTRAL,
+            // it can collide with all groups
+            collisionFilterMask: COLLISION_GROUP.ALL
         })
         body.updateMassProperties();
 
@@ -290,7 +320,11 @@ export default class EntityFactory {
             material: new CANNON.Material({ 
                 friction: constants.friction.block,
                 restitution: constants.restitution.block
-            })
+            }),
+            // put it in enemy group
+            collisionFilterGroup: COLLISION_GROUP.ENEMY,
+            // it can collide with player or neutral
+            collisionFilterMask: COLLISION_GROUP.PLAYER | COLLISION_GROUP.NEUTRAL
         })
         body.updateMassProperties();
         body.addShape(box)
@@ -317,18 +351,26 @@ export default class EntityFactory {
             material: new CANNON.Material({ 
                 friction: 0.5,
                 restitution: 0.9 
-            })
+            }),
+            // put it in collisionGroup
+            collisionFilterGroup: COLLISION_GROUP.ENEMY,
+            // it can collide with all groups
+            collisionFilterMask: COLLISION_GROUP.ALL
+            
         })
         body.addShape(sphere)
 
         this.ecsy.createEntity()
             .addComponent(ThreeMesh, { value: mesh })
             .addComponent(CannonBody, { value: body })
-            .addComponent(BadBoy)
+            .addComponent(GroupEnemy)
             .addComponent(Damageable)
     }
 
-    createBullet(position = new Vector3(), impulse = new Vector3(), size = new Vector3(1, 1, 1)) {
+    createBullet(position = new Vector3(), impulse = new Vector3(), 
+    collisionGroup = COLLISION_GROUP.PLAYER,
+    collisionMask = COLLISION_GROUP.NEUTRAL | COLLISION_GROUP.ENEMY,
+    size = new Vector3(1, 1, 1)) {
         const material = new SpriteMaterial({
             map: this.createTexture(4, 3)
         });
@@ -340,7 +382,12 @@ export default class EntityFactory {
         const body = new CANNON.Body({
             mass: 0.1,
             position: position,
-            fixedRotation: true
+            fixedRotation: true,
+            // put the bullet in collisionGroup (default: player group)
+            collisionFilterGroup: collisionGroup,
+            // it can only collide with groups in collisionMask
+            // default: enemy or neutral group
+            collisionFilterMask: collisionMask
         })
         body.addShape(shape);
 
@@ -353,5 +400,36 @@ export default class EntityFactory {
                 impulse: impulse, 
                 point: body.position
             })
+    }
+
+    createTurret(position = new Vector3(), size = new Vector3(1, 1, 1)) {
+        const mesh = MeshFactory.createTurret(position);
+
+        const box_size = new CANNON.Vec3(0.5 * size.x, 0.5 * size.y, 0.5 * size.z);
+        const box = new CANNON.Box(box_size);
+
+        const body = new CANNON.Body({
+            type: CANNON.Body.STATIC,
+            mass: 0,
+            position: position,
+            material: new CANNON.Material({ 
+                friction: constants.friction.block,
+                restitution: constants.restitution.block
+            }),
+            // put the bullet in collisionGroup
+            collisionFilterGroup: COLLISION_GROUP.PLAYER,
+            // it can collide with all groups
+            collisionFilterMask: COLLISION_GROUP.ALL
+        })
+
+        body.updateMassProperties();
+        body.addShape(box)
+
+        this.ecsy.createEntity()
+            .addComponent(ThreeMesh, { value: mesh })
+            .addComponent(CannonBody, { value: body })
+            .addComponent(GroupPlayer)
+            .addComponent(DistanceWeapon)
+            .addComponent(MeshAnimation)
     }
 } 
