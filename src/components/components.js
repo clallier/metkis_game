@@ -7,6 +7,7 @@ export class GroupEnemy extends TagComponent { }
 export class GroupPlayer extends TagComponent { }
 export class Collider extends TagComponent { }
 export class Bullet extends TagComponent { }
+export class Pickupable extends TagComponent { }
 
 export class DeleteAfter extends Component {
     constructor() {
@@ -149,7 +150,7 @@ export class Damageable extends Component {
     }
  }
 
- export class Drop extends Component {
+ export class DroppableOnDeath extends Component {
     constructor() {
         super();
         this.reset();
@@ -157,6 +158,17 @@ export class Damageable extends Component {
 
     reset() {
         // the item to drop on death
-        this.value = null;
+        this.item = null;
+    }
+ }
+
+ export class Inventory extends Component {
+    constructor() {
+        super();
+        this.reset();
+    }
+
+    reset() {
+        this.money = 0;
     }
  }

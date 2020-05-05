@@ -22,8 +22,21 @@ import DropSystem from './systems/dropsystem';
 
 // main inspiration: https://twitter.com/metkis/status/1024058489860186112
 // TODO 4: pickup (ex: money)
+    // Drop OK
+    // if player is not close => do nothing 
+    // if player is close => the "money" should be attracted by the player
+    // if player collide with "money" => add money to the player inventory + remove from the map
+    
+    // PickupSystem
+    // query 0 : player
+    // query 1 : pickupable => foreach
+    // 1) get dist from player to pickupable
+    // 2) if dist < given radius => apply force to the item in order to get closer to the player
+    // 3) if dist < small radius => remove item + add money to the inventory component of the player
+    //   
 // TODO 3: activate towers
 // TODO 5: tower animations (creation + rotation) 
+// TODO 6: screenshake, trail, explosions, impacts, "bang" on shot 
 
 export default class App {
     constructor() {

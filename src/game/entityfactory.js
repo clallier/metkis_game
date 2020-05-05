@@ -9,8 +9,9 @@ import {
 
 import {
     ThreeMesh, CannonBody, DeleteAfter, CameraTarget, Controllable,
-    GroupEnemy, GroupPlayer, SpriteAnimation, Damageable, DistanceWeapon, 
-    ApplyImpulse, Collider, SpawnEnemies, MeshAnimation, Drop
+    GroupEnemy, GroupPlayer, SpriteAnimation, Damageable, DistanceWeapon,
+    ApplyImpulse, Collider, SpawnEnemies, MeshAnimation, DroppableOnDeath, Inventory,
+    Pickupable
 } from "../components/components";
 
 import constants from "../game/constants.json";
@@ -21,7 +22,7 @@ const COLLISION_GROUP = {
     PLAYER: 1,
     NEUTRAL: 2,
     ENEMY: 4,
-    ALL: 1|2|4
+    ALL: 1 | 2 | 4
 }
 
 export default class EntityFactory {
@@ -138,7 +139,7 @@ export default class EntityFactory {
             type: CANNON.Body.STATIC,
             mass: 0,
             position: position,
-            material: new CANNON.Material({ 
+            material: new CANNON.Material({
                 friction: constants.friction.block,
                 restitution: constants.restitution.block
             }),
@@ -168,7 +169,7 @@ export default class EntityFactory {
         const shape = new CANNON.Box(box_size);
 
         const body = new CANNON.Body({
-            mass: 1,
+            mass: 0.1,
             position: position,
             fixedRotation: true,
             material: new CANNON.Material({
@@ -178,13 +179,15 @@ export default class EntityFactory {
             // put it in neutral group
             collisionFilterGroup: COLLISION_GROUP.NEUTRAL,
             // it can collide with player group
-            collisionFilterMask: COLLISION_GROUP.PLAYER | COLLISION_GROUP.NEUTRAL 
+            collisionFilterMask: COLLISION_GROUP.PLAYER | COLLISION_GROUP.NEUTRAL
         })
         body.addShape(shape)
 
         this.ecsy.createEntity()
             .addComponent(ThreeMesh, { value: mesh })
             .addComponent(CannonBody, { value: body })
+            .addComponent(Inventory, { money: 1 })
+            .addComponent(Pickupable)
     }
 
     createPlayer(position = new Vector3(), size = new Vector3(1, 1, 1)) {
@@ -231,6 +234,7 @@ export default class EntityFactory {
                 current_animation
             })
             .addComponent(GroupPlayer)
+            .addComponent(Inventory)
     }
 
     createCrate(position = new Vector3(), size = new Vector3(1, 1, 1)) {
@@ -337,7 +341,7 @@ export default class EntityFactory {
             type: CANNON.Body.STATIC,
             mass: 0,
             position: position,
-            material: new CANNON.Material({ 
+            material: new CANNON.Material({
                 friction: constants.friction.block,
                 restitution: constants.restitution.block
             }),
@@ -368,15 +372,15 @@ export default class EntityFactory {
             mass: 1,
             position: position,
             fixedRotation: true,
-            material: new CANNON.Material({ 
+            material: new CANNON.Material({
                 friction: 0.5,
-                restitution: 0.9 
+                restitution: 0.9
             }),
             // put it in collisionGroup
             collisionFilterGroup: COLLISION_GROUP.ENEMY,
             // it can collide with all groups
             collisionFilterMask: COLLISION_GROUP.ALL
-            
+
         })
         body.addShape(sphere)
 
@@ -384,15 +388,15 @@ export default class EntityFactory {
         this.ecsy.createEntity()
             .addComponent(ThreeMesh, { value: mesh })
             .addComponent(CannonBody, { value: body })
-            .addComponent(Drop, {value: loot})
+            .addComponent(DroppableOnDeath, { item: loot })
             .addComponent(GroupEnemy)
             .addComponent(Damageable)
     }
 
-    createBullet(position = new Vector3(), impulse = new Vector3(), 
-    collisionGroup = COLLISION_GROUP.PLAYER,
-    collisionMask = COLLISION_GROUP.NEUTRAL | COLLISION_GROUP.ENEMY,
-    size = new Vector3(1, 1, 1)) {
+    createBullet(position = new Vector3(), impulse = new Vector3(),
+        collisionGroup = COLLISION_GROUP.PLAYER,
+        collisionMask = COLLISION_GROUP.NEUTRAL | COLLISION_GROUP.ENEMY,
+        size = new Vector3(1, 1, 1)) {
         const material = new SpriteMaterial({
             map: this.createTexture(4, 3)
         });
@@ -419,13 +423,13 @@ export default class EntityFactory {
             .addComponent(CannonBody, { value: body })
             .addComponent(Collider)
             .addComponent(ApplyImpulse, {
-                impulse: impulse, 
+                impulse: impulse,
                 point: body.position
             })
     }
 
     createTurret(position = new Vector3(), size = new Vector3(1, 1, 1)) {
-        const turret = new Turret(position); 
+        const turret = new Turret(position);
         const box_size = new CANNON.Vec3(0.5 * size.x, 0.5 * size.y, 0.5 * size.z);
         const box = new CANNON.Box(box_size);
 
@@ -433,7 +437,7 @@ export default class EntityFactory {
             type: CANNON.Body.STATIC,
             mass: 0,
             position: position,
-            material: new CANNON.Material({ 
+            material: new CANNON.Material({
                 friction: constants.friction.block,
                 restitution: constants.restitution.block
             }),
