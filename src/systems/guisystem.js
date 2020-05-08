@@ -30,8 +30,8 @@ export default class GUISystem extends System {
             // selection
             const sel = MeshFactory.createGUIMesh(
                 new Vector3(0, -0.4, 0),
-                MeshFactory.createSelectionMark(new Map([['kpi', 1]]))
-                );
+                MeshFactory.createSelectionMark(.25)
+            );
             sel.name = 'selection';
             mesh.add(sel);
         })
