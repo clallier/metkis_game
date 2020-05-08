@@ -1,6 +1,6 @@
 import { System } from "ecsy";
 import {
-    GroupPlayer, GroupEnemy, DistanceWeapon, CannonBody, ChangeAnimation, MeshAnimation
+    GroupPlayer, GroupEnemy, DistanceWeapon, CannonBody, ChangeAnimation, MeshAnimation, GUI
 } from "../components/components";
 import { Vector3 } from "three";
 
@@ -62,6 +62,13 @@ export default class WeaponSystem extends System {
                         target: new Vector3(p1.x, 1, p1.z)
                     })
                 }
+            }
+
+            // TODO update gui test
+            const gui = e.getMutableComponent(GUI);
+            if(gui) {
+                const i = gui.infos;
+                i.set('kpi', weapon.time_to_next_target / weapon.delay_to_next_target)
             }
         })
     }

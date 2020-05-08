@@ -19,9 +19,10 @@ import WeaponSystem from './systems/weaponsystem';
 import WavesControllerSystem from './systems/wavescontrollersystem';
 import MeshAnimationSystem from './systems/meshanimationsystem';
 import DropSystem from './systems/dropsystem';
+import GUISystem from './systems/guisystem';
 
 // main inspiration: https://twitter.com/metkis/status/1024058489860186112
-// TODO 4: pickup (ex: money)
+// TODO 3: pickup (ex: money)
     // Drop OK
     // if player is not close => do nothing 
     // if player is close => the "money" should be attracted by the player
@@ -34,7 +35,19 @@ import DropSystem from './systems/dropsystem';
     // 2) if dist < given radius => apply force to the item in order to get closer to the player
     // 3) if dist < small radius => remove item + add money to the inventory component of the player
     //   
-// TODO 3: activate towers
+
+// TODO 4: activate towers
+    // Quand on s'approche d'une tourrelle => affichage d'une texture en mode "holographique"
+    // qui contienne les infos de la tourelle : 
+    // Ex : description, type, hp, argent dispo, level, progression au niveau superieur, tirs par secondes 
+    
+
+    // InfoSystem
+    // query 0 : player
+    // query 1 : gui component => foreach
+        // added => creation de la texture à partir des infos du composant
+        // pour les infos statiques => créées à l'initialisation
+        // pour les infos dynamiques, comment les récuperer ?
 // TODO 5: tower animations (creation + rotation) 
 // TODO 6: screenshake, trail, explosions, impacts, "bang" on shot 
 
@@ -55,6 +68,7 @@ export default class App {
             .registerSystem(WeaponSystem)
             .registerSystem(WavesControllerSystem)
             .registerSystem(DropSystem)
+            .registerSystem(GUISystem)
             .registerSystem(CameraSystem, { camera: this.ts.camera, control: this.ts.control })
             .registerSystem(PhysicSystem, { cannon_world: this.world, controller: this.controller })
             .registerSystem(SceneSystem, { scene: this.ts.scene })
@@ -86,7 +100,7 @@ export default class App {
                 const type = data[l][r];
                 const position = new Vector3(-r + x_offset, 1, -l + z_offset);
                 // TODO new tile sprite
-                // this.ecsy.game_factory.createTile(position);
+                this.ecsy.game_factory.createTile(position);
                 this.ecsy.game_factory.create(type, position);
             }
         }

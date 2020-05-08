@@ -77,9 +77,9 @@ export class MeshAnimation extends Component {
         this.idle = null;
         // TODO add more animations
     }
- }
+}
 
- export class ChangeAnimation extends Component {
+export class ChangeAnimation extends Component {
     constructor() {
         super();
         this.reset();
@@ -90,7 +90,7 @@ export class MeshAnimation extends Component {
         this.current_animation_duration = 0;
         this.target = null;
     }
- }
+}
 
 // TODO weapon component 
 export class DistanceWeapon extends Component {
@@ -118,7 +118,7 @@ export class ApplyImpulse extends Component {
     }
 
     reset() {
-        this.impulse = null; 
+        this.impulse = null;
         this.point = null;
     }
 }
@@ -132,9 +132,9 @@ export class Damageable extends Component {
     reset() {
         this.hp = 5;
     }
- }
+}
 
- export class SpawnEnemies extends Component {
+export class SpawnEnemies extends Component {
     constructor() {
         super();
         this.reset();
@@ -143,14 +143,14 @@ export class Damageable extends Component {
     reset() {
         this.time = 0;
         this.delay = 0.5;
-        this.emitting = true; 
+        this.emitting = true;
         this.total_time = 0;
         this.duration = 10;
         this.cooldown = 25;
     }
- }
+}
 
- export class DroppableOnDeath extends Component {
+export class DroppableOnDeath extends Component {
     constructor() {
         super();
         this.reset();
@@ -160,9 +160,9 @@ export class Damageable extends Component {
         // the item to drop on death
         this.item = null;
     }
- }
+}
 
- export class Inventory extends Component {
+export class Inventory extends Component {
     constructor() {
         super();
         this.reset();
@@ -171,4 +171,15 @@ export class Damageable extends Component {
     reset() {
         this.money = 0;
     }
- }
+}
+
+export class GUI extends Component {
+    constructor() {
+        super();
+        this.reset();
+    }
+
+    reset() {
+        this.infos = new Map();
+    }
+}

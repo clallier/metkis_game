@@ -1,5 +1,5 @@
 import { System } from "ecsy";
-import { CannonBody, DroppableOnDeath, Controllable, Pickupable, ApplyImpulse } from "../components/components";
+import { CannonBody, DroppableOnDeath, Controllable, Pickupable, ApplyImpulse, Inventory, DeleteAfter } from "../components/components";
 
 export default class DropSystem extends System {
     constructor(world, attributes) {
@@ -27,10 +27,17 @@ export default class DropSystem extends System {
                 const d = p0.vsub(p1);
                 const mag = d.length();
                 d.normalize();
-                if (mag < 5 && mag > 2) {
+                if (mag < 5 && mag > 1) {
                     e.addComponent(ApplyImpulse, { 
                         impulse: d.scale(0.05), 
                         point: p1 });
+                }
+                else if(mag < 1) {
+                    const {money} = e.getComponent(Inventory);
+                    const inventory = player.getMutableComponent(Inventory);
+                    inventory.money += money;
+                    console.log(`player has now ${inventory.money}$`)
+                    e.addComponent(DeleteAfter);
                 }
             })
         })

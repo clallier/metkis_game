@@ -1,5 +1,5 @@
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
-import { Scene, WebGLRenderer, PerspectiveCamera, HemisphereLight, SpotLight, PCFSoftShadowMap, AmbientLight } from 'three';
+import { Scene, WebGLRenderer, PerspectiveCamera, PCFSoftShadowMap, DirectionalLight, AmbientLight, HemisphereLight } from 'three';
 import { WEBGL } from 'three/examples/jsm/WebGL.js';
 
 export default class ThreeScene {
@@ -24,16 +24,20 @@ export default class ThreeScene {
         this.scene = new Scene();
 
         this.lights = [];
-        this.lights.push(new SpotLight(0xffffff, 1))
-        this.lights[0].position.set(0, 30, 0);
-        // const light = new HemisphereLight(0xffffff, 0xffffff, 0.6);
-        // light.color.setHSL(0.8, 1, 1);
-        // light.groundColor.setHSL(1, 1, 0.8);
+        // TODO : https://threejs.org/editor/ pour setup des lights
+        // this.lights.push(new AmbientLight(0xffa500, .2))
+        this.lights.push(new HemisphereLight(0xffa500, 0x4ba787, .2))
+
+        const directionalLight = new DirectionalLight(0xffffff, 1);
+        directionalLight.position.set(0, 30, 0);
+
+        this.lights.push(directionalLight);
+        
         for (let i = 0; i < this.lights.length; i++)
             this.scene.add(this.lights[i]);
     }
 
-    render(delta) {
+    render() {
         this.control.update();
         this.renderer.render(this.scene, this.camera);
     }

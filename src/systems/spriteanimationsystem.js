@@ -18,9 +18,11 @@ export default class SpriteAnimationSystem extends System {
             sprite_anim.time += delta;
 
             if (body && body.velocity.x < -0.2) {
+                mesh.material.rotation = 0.1;
                 this.setAnimation(mesh, sprite_anim, sprite_anim.move_right);
             }
             if (body && body.velocity.x > 0.2) {
+                mesh.material.rotation = -0.1;
                 this.setAnimation(mesh, sprite_anim, sprite_anim.move_left);
             }
 
