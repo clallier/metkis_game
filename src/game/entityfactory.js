@@ -4,15 +4,14 @@ import {
     Vector3, PlaneGeometry, MeshBasicMaterial, BoxGeometry,
     SpriteMaterial, Sprite, MeshToonMaterial,
     IcosahedronGeometry, Texture,
-    LinearMipmapLinearFilter, NearestFilter, Mesh, RepeatWrapping
+    LinearMipmapLinearFilter, NearestFilter, Mesh, RepeatWrapping, CylinderGeometry
 } from "three";
 
 import {
     ThreeMesh, CannonBody, DeleteAfter, CameraTarget, Controllable,
     GroupEnemy, GroupPlayer, SpriteAnimation, Damageable, DistanceWeapon,
     ApplyImpulse, Collider, SpawnEnemies, MeshAnimation, DroppableOnDeath, Inventory,
-    Pickupable,
-    GUI
+    Pickupable, GUI, PathFinding
 } from "../components/components";
 
 import constants from "../game/constants.json";
@@ -51,44 +50,47 @@ export default class EntityFactory {
         return texture;
     }
 
-    create(type = 1, position = new Vector3()) {
-        if (type == 1) {
+    create(type = '1', position = new Vector3()) {
+        if (type == '1') {
             this.createBlock(position)
         }
-        else if (type == 2) {
+        else if (type == '2') {
             this.createItem(position)
         }
-        else if (type == 3) {
+        else if (type == '3') {
             this.createPlayer(position)
         }
-        if (type == 4) {
+        if (type == '4') {
             this.createCrate(position)
         }
-        if (type == 5) {
+        if (type == '5') {
             this.createBall(position)
         }
-        if (type == 6) {
+        if (type == '6') {
             this.createEnemy(position)
         }
-        if (type == 7) {
+        if (type == '7') {
             this.createSpawnPoint(position)
         }
-        if (type == 8) {
+        if (type == '8') {
             this.createTurret(position)
+        }
+        if (type == '9') {
+            this.createGenerator(position)
         }
     }
 
-    createAxes() {
-        const axesMesh = MeshFactory.createAxes(new Vector3(0, 1, 0))
+    createAxes(position = new Vector3(0, 1, 0)) {
+        const axesMesh = MeshFactory.createAxes(position);
 
         this.ecsy.createEntity()
             .addComponent(ThreeMesh, { value: axesMesh })
     }
 
-    createDemoText() {
+    createDemoText(position = new Vector3(0, 2, 0)) {
         // text
         const sprite = MeshFactory.createText(
-            new Vector3(0, 2, 0),
+            position,
             "READY TO 🍪?!")
 
         this.ecsy.createEntity()
@@ -167,7 +169,7 @@ export default class EntityFactory {
         mesh.scale.set(0.8 * size.x, 0.8 * size.y, 1);
         mesh.position.copy(position);
 
-        const box_size = new CANNON.Vec3(0.4 * size.x, 0.4 * size.y, 0.4 * size.z);
+        const box_size = new CANNON.Vec3(0.2 * size.x, 0.2 * size.y, 0.2 * size.z);
         const shape = new CANNON.Box(box_size);
 
         const body = new CANNON.Body({
@@ -236,6 +238,7 @@ export default class EntityFactory {
             })
             .addComponent(GroupPlayer)
             .addComponent(Inventory)
+            .addComponent(DistanceWeapon)
     }
 
     createCrate(position = new Vector3(), size = new Vector3(1, 1, 1)) {
@@ -392,6 +395,7 @@ export default class EntityFactory {
             .addComponent(DroppableOnDeath, { item: loot })
             .addComponent(GroupEnemy)
             .addComponent(Damageable)
+            .addComponent(PathFinding)
     }
 
     createBullet(position = new Vector3(), impulse = new Vector3(),
@@ -470,5 +474,43 @@ export default class EntityFactory {
                     ['kpi', .75]
                 ])
             })
+    }
+
+    createGenerator(position = new Vector3(), size = new Vector3(1, 1, 1)) {
+        // TODO if it stays a box => merge code with createBlock
+        var geometry = new CylinderGeometry(
+            size.x * .3,
+            size.x * .5,
+            size.y,
+            8);
+
+        const material = new MeshToonMaterial({
+            map: this.createTexture(7, 10)
+        })
+        const mesh = new Mesh(geometry, material);
+        mesh.position.copy(position);
+
+        const box_size = new CANNON.Vec3(0.5 * size.x, 0.5 * size.y, 0.5 * size.z);
+        const box = new CANNON.Box(box_size);
+
+        const body = new CANNON.Body({
+            type: CANNON.Body.STATIC,
+            mass: 0,
+            position: position,
+            shape: box,
+            material: new CANNON.Material({
+                friction: constants.friction.block,
+                restitution: constants.restitution.block
+            }),
+            // put it in player group
+            collisionFilterGroup: COLLISION_GROUP.PLAYER,
+            // it can collide with all
+            collisionFilterMask: COLLISION_GROUP.ALL
+        })
+        body.updateMassProperties();
+
+        this.ecsy.createEntity()
+            .addComponent(ThreeMesh, { value: mesh })
+            .addComponent(CannonBody, { value: body })
     }
 } 

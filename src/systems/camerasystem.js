@@ -18,6 +18,7 @@ export default class CameraSystem extends System {
             this.pos_target.y += 8;
             this.pos_target.z -= 8;
             this.camera.position.lerp(this.pos_target, 0.1);
+            this.control.target.x = mesh.position.x;
             this.control.target.z = mesh.position.z + 8;
         })
     }

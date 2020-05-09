@@ -8,6 +8,7 @@ export class GroupPlayer extends TagComponent { }
 export class Collider extends TagComponent { }
 export class Bullet extends TagComponent { }
 export class Pickupable extends TagComponent { }
+export class PathFinding extends TagComponent { }
 
 export class DeleteAfter extends Component {
     constructor() {
@@ -102,7 +103,7 @@ export class DistanceWeapon extends Component {
     reset() {
         // in s
         this.time = 10;
-        this.delay = 0.1;
+        this.delay = 0.2;
         this.impulse_speed = 5;
         this.impulse_y = 0;
         this.target = null;

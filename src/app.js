@@ -20,36 +20,14 @@ import WavesControllerSystem from './systems/wavescontrollersystem';
 import MeshAnimationSystem from './systems/meshanimationsystem';
 import DropSystem from './systems/dropsystem';
 import GUISystem from './systems/guisystem';
+import MapLevel from './pahfinding/maplevel';
+import EnemyPathFindingSystem from './systems/enemypathfinding';
 
 // main inspiration: https://twitter.com/metkis/status/1024058489860186112
-// TODO 3: pickup (ex: money)
-    // Drop OK
-    // if player is not close => do nothing 
-    // if player is close => the "money" should be attracted by the player
-    // if player collide with "money" => add money to the player inventory + remove from the map
-    
-    // PickupSystem
-    // query 0 : player
-    // query 1 : pickupable => foreach
-    // 1) get dist from player to pickupable
-    // 2) if dist < given radius => apply force to the item in order to get closer to the player
-    // 3) if dist < small radius => remove item + add money to the inventory component of the player
-    //   
-
-// TODO 4: activate towers
-    // Quand on s'approche d'une tourrelle => affichage d'une texture en mode "holographique"
-    // qui contienne les infos de la tourelle : 
-    // Ex : description, type, hp, argent dispo, level, progression au niveau superieur, tirs par secondes 
-    
-
-    // InfoSystem
-    // query 0 : player
-    // query 1 : gui component => foreach
-        // added => creation de la texture à partir des infos du composant
-        // pour les infos statiques => créées à l'initialisation
-        // pour les infos dynamiques, comment les récuperer ?
+// TODO 4: pathfinding 
 // TODO 5: tower animations (creation + rotation) 
 // TODO 6: screenshake, trail, explosions, impacts, "bang" on shot 
+// TODO 7: scene transitions
 
 export default class App {
     constructor() {
@@ -78,34 +56,41 @@ export default class App {
 
         window.addEventListener('resize', () => this.resize(), false);
         this.resize()
-
-        // axes
-        this.ecsy.game_factory.createAxes();
-
-        // text
-        this.ecsy.game_factory.createDemoText();
     }
 
     async start() {
         await this.spriteSheet.load();
 
+        // TODO map_level MapLevel object
         const data = constants.level.data;
         const rows = data.length;
         const cols = data[0].length;
+        const map_level = new MapLevel(data, ['1', '8']);
+        map_level.debug();
+        this.ecsy.registerSystem(EnemyPathFindingSystem, {map_level});
 
-        const x_offset = ~~(cols / 2);
-        const z_offset = ~~(rows / 2);
+        // TODO update map level when add turret
+        const halfW = ~~(-cols / 2);
+        const halfH = ~~(-rows / 2);
+
+        // axes
+        this.ecsy.game_factory.createAxes(new Vector3(halfW, 1, halfH));
+        // text
+        this.ecsy.game_factory.createDemoText(new Vector3(halfW, 2, halfH));
+        
         for (let l = 0; l < rows; l++) {
             for (let r = 0; r < cols; r++) {
                 const type = data[l][r];
-                const position = new Vector3(-r + x_offset, 1, -l + z_offset);
+                // TODO cleanup
+                // const position = new Vector3(-r + x_offset, 1, -l + z_offset);
+                const position = new Vector3(-r, 1, -l);
                 // TODO new tile sprite
                 this.ecsy.game_factory.createTile(position);
                 this.ecsy.game_factory.create(type, position);
             }
         }
         this.ecsy.game_factory.createGround(
-            new Vector3(0, -.5, 0.5),
+            new Vector3(halfW, -.5, halfH),
             new Vector3(cols, 1, rows)
         )
 
@@ -128,4 +113,10 @@ export default class App {
         this.ts.resize();
     }
 
+
+    update_bfs_map() {
+        const data = constants.level.data;
+        const frontier = [];
+
+    }
 }
