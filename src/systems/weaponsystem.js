@@ -1,7 +1,7 @@
 import { System } from "ecsy";
 import {
-    GroupPlayer, GroupEnemy, DistanceWeapon, CannonBody, ChangeAnimation, MeshAnimation, GUI
-} from "../components/components";
+    GroupPlayer, GroupEnemy, DistanceWeapon, CannonBody, MeshAnimation, GUI
+} from "../components";
 import { Vector3 } from "three";
 
 export default class WeaponSystem extends System {
@@ -34,7 +34,7 @@ export default class WeaponSystem extends System {
                 const p0 = e.getComponent(CannonBody).value.position;
 
                 // sort enemies in order to find the closest
-                if (weapon.target == null || 
+                if (weapon.target == null ||
                     weapon.target.hasComponent(CannonBody) == false ||
                     weapon.time_to_next_target >= weapon.delay_to_next_target) {
                     weapon.time_to_next_target = 0;
@@ -52,29 +52,27 @@ export default class WeaponSystem extends System {
                 // TODO y += shootBullets.impulse_y
                 // .setY(shootBullets.impulse_y)
 
-                // TODO set animation + target
+                // set animation + target
                 this.world.game_factory.createBullet(p0, impulse);
                 const mesh_anim = e.getComponent(MeshAnimation);
-                if(mesh_anim) {
-                    e.addComponent(ChangeAnimation, {
-                        current_animation: mesh_anim.attack,
-                        current_animation_duration: 0.5,
-                        target: new Vector3(p1.x, 1, p1.z)
-                    })
+                if (mesh_anim) {
+                    mesh_anim.current_animation = mesh_anim.attack;
+                    mesh_anim.current_animation_duration = 0.5;
+                    mesh_anim.time = 0;
+                    mesh_anim.target = new Vector3(p1.x, 1, p1.z);
                 }
             }
 
-            // TODO update gui test
+            // update gui test
             const gui = e.getMutableComponent(GUI);
-            if(gui) {
-                const i = gui.infos;
-                i.set('kpi', weapon.time_to_next_target / weapon.delay_to_next_target)
-            }
+            if(gui == null) return;
+            const circularProgress = gui.map.get('kpi');
+            if(circularProgress)
+                circularProgress.progress = weapon.time_to_next_target / weapon.delay_to_next_target;
         })
     }
 
-
-    // TODO : in sight
+    // FEAT : in sight
     sortByDistance(entity_list, p0) {
         let p1 = null, p2 = null, d1 = 0, d2 = 0;
         entity_list.sort((e1, e2) => {

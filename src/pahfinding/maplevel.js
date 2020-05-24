@@ -27,7 +27,7 @@ export default class MapLevel {
     }
 
     query_direction(x, y) {
-        // TODO robustness
+        // FEAT : bilineare filtering : https://howtorts.github.io/2014/01/04/basic-flow-fields.html
         const node_key = this.graph.get_key(x, y);
         const node = this.bfs.came_from.get(node_key);
         if(node == null) return [0, 0];

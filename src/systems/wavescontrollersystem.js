@@ -1,7 +1,7 @@
 import { System } from "ecsy";
 import {
     SpawnEnemies, ThreeMesh, GroupEnemy
-} from "../components/components";
+} from "../components";
 
 export default class WavesControllerSystem extends System {
     constructor(world, attributes) {

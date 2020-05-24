@@ -23,9 +23,11 @@ export default {
         commonjs({ include: 'node_modules/**' }),
         serve({ open: true, contentBase: 'build' }),
         copy({
-            targets: [
-                {src: 'resources/**', dest: 'build/resources'}
-            ] 
+            flatten: false,
+            targets: [{
+                src: 'resources/**', 
+                dest: 'build/resources/'
+            }] 
         })
     ]
 };

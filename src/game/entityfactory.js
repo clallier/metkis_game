@@ -11,11 +11,12 @@ import {
     ThreeMesh, CannonBody, DeleteAfter, CameraTarget, Controllable,
     GroupEnemy, GroupPlayer, SpriteAnimation, Damageable, DistanceWeapon,
     ApplyImpulse, Collider, SpawnEnemies, MeshAnimation, DroppableOnDeath, Inventory,
-    Pickupable, GUI, PathFinding
-} from "../components/components";
+    Pickupable, GUI, PathFinding, Selectionable
+} from "../components";
 
 import constants from "../game/constants.json";
 import Turret from './turret';
+import { GUIText, GUICircularProgress } from '../canvastexturefactory';
 
 // https://github.com/schteppe/cannon.js/blob/master/demos/collisionFilter.html
 const COLLISION_GROUP = {
@@ -25,7 +26,6 @@ const COLLISION_GROUP = {
     ALL: 1 | 2 | 4
 }
 
-// TODO : convert it to system ?
 export default class EntityFactory {
     constructor(ecsy, spriteSheet) {
         this.ecsy = ecsy;
@@ -89,7 +89,7 @@ export default class EntityFactory {
 
     createDemoText(position = new Vector3(0, 2, 0)) {
         // text
-        const sprite = MeshFactory.createText(
+        const sprite = MeshFactory.createTextSprite(
             position,
             "READY TO 🍪?!")
 
@@ -102,8 +102,8 @@ export default class EntityFactory {
     createTile(position = new Vector3(), size = new Vector3(1, 1, 1)) {
         const geometry = new PlaneGeometry(size.x, size.y, 1, 1);
 
-        const x = ~~(Math.random() * 2) + 4
-        const y = 0
+        const x = ~~(Math.random() * 2) + 6;
+        const y = 14;
         const material = new MeshBasicMaterial({
             map: this.createTexture(x, y)
         });
@@ -120,12 +120,12 @@ export default class EntityFactory {
     createBlock(position = new Vector3(), size = new Vector3(1, 1, 1)) {
         const geometry = new BoxGeometry(size.x, size.y, size.z);
         const material0 = new MeshBasicMaterial({
-            map: this.createTexture(3, 10)
+            map: this.createTexture(1, 11)
         })
-        const material1 = new MeshToonMaterial({
-            map: this.createTexture(2, 10)
+        const material1 = new MeshBasicMaterial({
+            map: this.createTexture(0, 12)
         })
-
+    
         const materials = [];
         materials.push(material1); // left
         materials.push(material1); // right
@@ -248,7 +248,7 @@ export default class EntityFactory {
             0.8 * size.z
         );
         const material = new MeshToonMaterial({
-            map: this.createTexture(6, 10),
+            map: this.createTexture(6, 1),
             shininess: 0.2
         });
         const mesh = new Mesh(geometry, material);
@@ -469,11 +469,12 @@ export default class EntityFactory {
                 current_animation
             })
             .addComponent(GUI, {
-                infos: new Map([
-                    ['description', 'I turret !'],
-                    ['kpi', .75]
+                map: new Map([
+                    ['description', new GUIText('I like µchips!')],
+                    ['kpi', new GUICircularProgress(0.75)]
                 ])
             })
+            .addComponent(Selectionable)
     }
 
     createGenerator(position = new Vector3(), size = new Vector3(1, 1, 1)) {
@@ -512,5 +513,12 @@ export default class EntityFactory {
         this.ecsy.createEntity()
             .addComponent(ThreeMesh, { value: mesh })
             .addComponent(CannonBody, { value: body })
+            .addComponent(GUI, {
+                map: new Map([
+                    ['description', new GUIText('Hi! I generator!')],
+                    ['infos', new GUIText('Protect me!')],
+                ])
+            })
+            .addComponent(Selectionable)
     }
 } 

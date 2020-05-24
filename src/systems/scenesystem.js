@@ -1,5 +1,5 @@
 import { System } from "ecsy";
-import { ThreeMesh, CannonBody } from "../components/components";
+import { ThreeMesh, CannonBody } from "../components";
 
 export default class SceneSystem extends System {
     constructor(world, attributes) {

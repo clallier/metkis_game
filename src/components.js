@@ -59,7 +59,7 @@ export class SpriteAnimation extends Component {
         this.move_left = [];
         this.move_right = [];
         this.idle = [];
-        // TODO add more animations
+        // FEAT add more animations
     }
 }
 
@@ -76,20 +76,7 @@ export class MeshAnimation extends Component {
         this.target = null;
         this.attack = null;
         this.idle = null;
-        // TODO add more animations
-    }
-}
-
-export class ChangeAnimation extends Component {
-    constructor() {
-        super();
-        this.reset();
-    }
-
-    reset() {
-        this.current_animation = null;
-        this.current_animation_duration = 0;
-        this.target = null;
+        // FEAT add more animations
     }
 }
 
@@ -181,6 +168,19 @@ export class GUI extends Component {
     }
 
     reset() {
-        this.infos = new Map();
+        this.active = false;
+        this.map = new Map();
     }
 }
+
+export class Selectionable extends Component {
+    constructor() {
+        super();
+        this.reset();
+    }
+
+    reset() {
+        this.active = false;
+        this.timer = 0;
+    }
+ }

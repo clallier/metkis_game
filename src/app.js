@@ -2,6 +2,7 @@ import MiniConsole from './miniconsole';
 import ThreeScene from './threescene';
 import SpriteSheet from './spritesheet'
 import TouchController from './touchcontroller';
+import GLBench from 'gl-bench';
 
 import constants from './game/constants.json';
 
@@ -24,10 +25,12 @@ import MapLevel from './pahfinding/maplevel';
 import EnemyPathFindingSystem from './systems/enemypathfinding';
 
 // main inspiration: https://twitter.com/metkis/status/1024058489860186112
-// TODO 4: pathfinding 
-// TODO 5: tower animations (creation + rotation) 
-// TODO 6: screenshake, trail, explosions, impacts, "bang" on shot 
-// TODO 7: scene transitions
+// TODO 4: MeshFactory
+// TODO 5: tower hud animations (creation + rotation) 
+// TODO 6: screenshake, trail, explosions, impacts, "bang" on shot, particles 
+// TODO 7: turret creation/upgrade/repare mechanics
+// TODO 8: scene transitions
+// TODO 9: entity pooling
 
 export default class App {
     constructor() {
@@ -38,6 +41,8 @@ export default class App {
         this.world.gravity.set(0, -10, 0);
         this.debugRenderer = new CannonDebugRenderer(this.ts.scene, this.world);
         this.controller = new TouchController();
+        // GPU bench
+        this.bench = new GLBench(this.ts.renderer, { trackGPU: true });
 
         this.ecsy = new World()
             .registerSystem(TimerSystem)
@@ -66,7 +71,6 @@ export default class App {
         const rows = data.length;
         const cols = data[0].length;
         const map_level = new MapLevel(data, ['1', '8']);
-        map_level.debug();
         this.ecsy.registerSystem(EnemyPathFindingSystem, {map_level});
 
         // TODO update map level when add turret
@@ -81,10 +85,8 @@ export default class App {
         for (let l = 0; l < rows; l++) {
             for (let r = 0; r < cols; r++) {
                 const type = data[l][r];
-                // TODO cleanup
-                // const position = new Vector3(-r + x_offset, 1, -l + z_offset);
                 const position = new Vector3(-r, 1, -l);
-                // TODO new tile sprite
+                // TODO new tile sprite + new spritesheet
                 this.ecsy.game_factory.createTile(position);
                 this.ecsy.game_factory.create(type, position);
             }
@@ -100,23 +102,27 @@ export default class App {
     update(time) {
         let delta = (time - this.lastTime) * 0.001;
         delta = Math.min(delta, 0.1);
-        this.lastTime = time;       
+        this.lastTime = time;
+        
+        // update ecs
+        this.bench.begin();
         this.ecsy.execute(delta, time);
-        // TODO render
-        // this.debugRenderer.update();
+
+        // render
+        this.render(delta);      
+        this.bench.end();
+        
+        this.bench.nextFrame(time);
+        requestAnimationFrame((t) => this.update(t));
+    }
+
+    render(delta) {
+        //this.debugRenderer.update();
         this.ts.render(delta);
         if(this.controller) this.controller.display();
-        requestAnimationFrame((t) => this.update(t));
     }
 
     resize() {
         this.ts.resize();
-    }
-
-
-    update_bfs_map() {
-        const data = constants.level.data;
-        const frontier = [];
-
     }
 }

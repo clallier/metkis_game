@@ -1,5 +1,5 @@
 import { System } from "ecsy";
-import { CameraTarget, ThreeMesh } from "../components/components";
+import { CameraTarget, ThreeMesh } from "../components";
 import { Vector3 } from "three";
 
 export default class CameraSystem extends System {

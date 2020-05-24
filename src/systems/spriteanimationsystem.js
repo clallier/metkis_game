@@ -1,5 +1,5 @@
 import { System } from "ecsy";
-import { SpriteAnimation, ThreeMesh, CannonBody} from "../components/components";
+import { SpriteAnimation, ThreeMesh, CannonBody} from "../components";
 
 export default class SpriteAnimationSystem extends System {
     constructor(world, attributes) {
@@ -26,7 +26,7 @@ export default class SpriteAnimationSystem extends System {
                 this.setAnimation(mesh, sprite_anim, sprite_anim.move_left);
             }
 
-            // TODO animation time, animation_name
+            // FEAT animation time, animation_name
             if (sprite_anim.time > 1) {
                 this.nextFrame(sprite_anim);
                 this.setFrame(mesh, sprite_anim);

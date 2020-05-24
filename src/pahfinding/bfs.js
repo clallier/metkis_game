@@ -1,5 +1,6 @@
 export default class BFS {
-    // TODO list of start nodes
+    // FEAT list of start nodes
+    // https://www.redblobgames.com/pathfinding/distance-to-any/
     constructor(graph, start_node) {
         let curr_key = graph.get_key(start_node[0], start_node[1]);
         let next_key = "";

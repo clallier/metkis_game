@@ -1,5 +1,5 @@
 import { System } from "ecsy";
-import { PathFinding, CannonBody } from "../components/components";
+import { PathFinding, CannonBody } from "../components";
 import CANNON from 'cannon';
 
 export default class EnemyPathFindingSystem extends System {

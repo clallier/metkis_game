@@ -35,6 +35,7 @@ export default class ThreeScene {
         
         for (let i = 0; i < this.lights.length; i++)
             this.scene.add(this.lights[i]);
+
     }
 
     render() {

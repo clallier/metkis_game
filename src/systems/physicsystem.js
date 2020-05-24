@@ -1,7 +1,7 @@
 import { System } from "ecsy";
 import {
     CannonBody, Controllable, ApplyImpulse, Collider, Damageable, DeleteAfter
-} from "../components/components";
+} from "../components";
 import CANNON from 'cannon';
 
 // raycast for fast objects (for CCD - Continuous Collision Detection)
@@ -84,31 +84,20 @@ export default class PhysicSystem extends System {
 
     collide(e) {
         // ignore tiny collisions
-        const impact = Math.abs(e.contact.getImpactVelocityAlongNormal()) 
-        if(impact < 5.0) return
+        const impact = Math.abs(e.contact.getImpactVelocityAlongNormal())
+        if (impact < 5.0) return
+        const bodies = [e.contact.bi, e.contact.bj]
 
-        const body_0 = e.body;
-        const body_1 = e.contact.bi;
-        const entity_1 = body_1.entity_data;
-        const damageable_1 = entity_1.getMutableComponent(Damageable);
-        const body_2 = e.contact.bj;
-        const entity_2 = body_2.entity_data;
-        const damageable_2 = entity_2.getMutableComponent(Damageable);
+        // damages
+        bodies.forEach((body) => {
+            const entity = body.entity_data;
+            if (entity == null) return;
+            const damageable = entity.getComponent(Damageable);
+            if (damageable == null) return;
 
-        const damageables = [damageable_1, damageable_2]
-        const entities = [entity_1, entity_2]
-
-        // TODO DamageSystem + cleanup
-        for(let i=0; i<damageables.length; i++) {
-            const d = damageables[i]; 
-            if(d != null) {
-                d.hp -= 1;
-                if(d.hp <= 0) {
-                    entities[i].addComponent(DeleteAfter);
-                }
-            }
-        }
-            
+            damageable.hp -= 1;
+            if (damageable.hp <= 0) entity.addComponent(DeleteAfter);
+        })
     }
 }
 

@@ -7,6 +7,7 @@
   "dependencies": {
     "cannon": "^0.6.2",
     "ecsy": "^0.2.3",
+    "gl-bench": "^0.3.90",
     "three": "^0.115.0"
   },
   "devDependencies": {
