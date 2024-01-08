@@ -48,6 +48,7 @@ export default class PhysicSystem extends System {
         this.queries.entities.results.forEach(e => {
             const body = e.getComponent(CannonBody).value;
             if (body.position.y < -40) {
+                console.log("Outsite of the world")
                 e.addComponent(DeleteAfter)
             }
         })
@@ -56,7 +57,8 @@ export default class PhysicSystem extends System {
         this.queries.controllables.results.forEach(e => {
             const body = e.getComponent(CannonBody).value;
             const dir = this.controller.state.dir;
-            let force = new CANNON.Vec3(dir.x, 0, dir.y)
+            const power = 0.4;
+            let force = new CANNON.Vec3(dir.x * power, 0, dir.y * power)
                 .scale(-1);
             body.applyImpulse(force, body.position);
         })

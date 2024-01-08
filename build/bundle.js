@@ -14,11 +14,11 @@ class MiniConsole {
         this.output.style.width = '100%';
         this.output.style.flexDirection = 'column-reverse';
         this.output.onclick = () => this.toggleSize();
-        this.maximize();
+        this.minimize();
         this.hide();
-        
+
         document.body.insertBefore(this.output, document.body.firstChild);
-        
+
         // Reference to native method(s)
         this.log = console.log;
         console.log = (...e) => this.consoleCatcher('', ...e);
@@ -34,7 +34,7 @@ class MiniConsole {
 
         // Use JSON to transform objects, all others display normally
         items.forEach((item, i) => {
-            items[i] = (typeof item === 'object' ? JSON.stringify(item, null, 2) : item);
+            items[i] = (item != null && typeof item === 'object' ? JSON.stringify(item, null, 2) : item);
         });
 
         this.output.innerHTML += `${level}${items.join(' ')} <br />`;
@@ -252,6 +252,7 @@ var RGBFormat = 1022;
 var RGBAFormat = 1023;
 var LuminanceFormat = 1024;
 var LuminanceAlphaFormat = 1025;
+var RGBEFormat = RGBAFormat;
 var DepthFormat = 1026;
 var DepthStencilFormat = 1027;
 var RedFormat = 1028;
@@ -333,9 +334,9 @@ var DynamicDrawUsage = 35048;
  * https://github.com/mrdoob/eventdispatcher.js/
  */
 
-function EventDispatcher() {}
+function EventDispatcher$1() {}
 
-Object.assign( EventDispatcher.prototype, {
+Object.assign( EventDispatcher$1.prototype, {
 
 	addEventListener: function ( type, listener ) {
 
@@ -1579,7 +1580,7 @@ function Texture( image, mapping, wrapS, wrapT, magFilter, minFilter, format, ty
 Texture.DEFAULT_IMAGE = undefined;
 Texture.DEFAULT_MAPPING = UVMapping;
 
-Texture.prototype = Object.assign( Object.create( EventDispatcher.prototype ), {
+Texture.prototype = Object.assign( Object.create( EventDispatcher$1.prototype ), {
 
 	constructor: Texture,
 
@@ -2524,7 +2525,7 @@ function WebGLRenderTarget( width, height, options ) {
 
 }
 
-WebGLRenderTarget.prototype = Object.assign( Object.create( EventDispatcher.prototype ), {
+WebGLRenderTarget.prototype = Object.assign( Object.create( EventDispatcher$1.prototype ), {
 
 	constructor: WebGLRenderTarget,
 
@@ -5362,7 +5363,7 @@ function Object3D() {
 Object3D.DefaultUp = new Vector3( 0, 1, 0 );
 Object3D.DefaultMatrixAutoUpdate = true;
 
-Object3D.prototype = Object.assign( Object.create( EventDispatcher.prototype ), {
+Object3D.prototype = Object.assign( Object.create( EventDispatcher$1.prototype ), {
 
 	constructor: Object3D,
 
@@ -8691,7 +8692,7 @@ function Material() {
 
 }
 
-Material.prototype = Object.assign( Object.create( EventDispatcher.prototype ), {
+Material.prototype = Object.assign( Object.create( EventDispatcher$1.prototype ), {
 
 	constructor: Material,
 
@@ -9991,7 +9992,7 @@ function BufferGeometry() {
 
 }
 
-BufferGeometry.prototype = Object.assign( Object.create( EventDispatcher.prototype ), {
+BufferGeometry.prototype = Object.assign( Object.create( EventDispatcher$1.prototype ), {
 
 	constructor: BufferGeometry,
 
@@ -11681,7 +11682,7 @@ function Geometry() {
 
 }
 
-Geometry.prototype = Object.assign( Object.create( EventDispatcher.prototype ), {
+Geometry.prototype = Object.assign( Object.create( EventDispatcher$1.prototype ), {
 
 	constructor: Geometry,
 
@@ -23368,7 +23369,7 @@ function WebXRManager( renderer, gl ) {
 
 }
 
-Object.assign( WebXRManager.prototype, EventDispatcher.prototype );
+Object.assign( WebXRManager.prototype, EventDispatcher$1.prototype );
 
 /**
  * @author supereggbert / http://www.paulbrunt.co.uk/
@@ -23605,7 +23606,7 @@ function WebGLRenderer( parameters ) {
 		state.scissor( _currentScissor.copy( _scissor ).multiplyScalar( _pixelRatio ).floor() );
 		state.viewport( _currentViewport.copy( _viewport ).multiplyScalar( _pixelRatio ).floor() );
 
-		info = new WebGLInfo( _gl );
+		info = new WebGLInfo();
 		properties = new WebGLProperties();
 		textures = new WebGLTextures( _gl, extensions, state, properties, capabilities, utils, info );
 		attributes = new WebGLAttributes( _gl, capabilities );
@@ -44598,7 +44599,7 @@ function AnimationMixer( root ) {
 
 }
 
-AnimationMixer.prototype = Object.assign( Object.create( EventDispatcher.prototype ), {
+AnimationMixer.prototype = Object.assign( Object.create( EventDispatcher$1.prototype ), {
 
 	constructor: AnimationMixer,
 
@@ -47246,6 +47247,7 @@ AxesHelper.prototype.constructor = AxesHelper;
 
 var LOD_MIN = 4;
 var LOD_MAX = 8;
+var SIZE_MAX = Math.pow( 2, LOD_MAX );
 // The standard deviations (radians) associated with the extra mips. These are
 // chosen to approximate a Trowbridge-Reitz distribution function times the
 // geometric shadowing function. These sigma values squared must match the
@@ -47267,8 +47269,150 @@ var ENCODINGS = {
 
 var _flatCamera = new OrthographicCamera();
 var _blurMaterial = _getBlurShader( MAX_SAMPLES );
+var _equirectShader = null;
+var _cubemapShader = null;
 
 var { _lodPlanes, _sizeLods, _sigmas } = _createPlanes();
+var _pingPongRenderTarget = null;
+var _renderer = null;
+
+var _oldTarget = null;
+
+// Golden Ratio
+var PHI = ( 1 + Math.sqrt( 5 ) ) / 2;
+var INV_PHI = 1 / PHI;
+// Vertices of a dodecahedron (except the opposites, which represent the
+// same axis), used as axis directions evenly spread on a sphere.
+var _axisDirections = [
+	new Vector3( 1, 1, 1 ),
+	new Vector3( - 1, 1, 1 ),
+	new Vector3( 1, 1, - 1 ),
+	new Vector3( - 1, 1, - 1 ),
+	new Vector3( 0, PHI, INV_PHI ),
+	new Vector3( 0, PHI, - INV_PHI ),
+	new Vector3( INV_PHI, 0, PHI ),
+	new Vector3( - INV_PHI, 0, PHI ),
+	new Vector3( PHI, INV_PHI, 0 ),
+	new Vector3( - PHI, INV_PHI, 0 ) ];
+
+function PMREMGenerator( renderer ) {
+
+	_renderer = renderer;
+	_compileMaterial( _blurMaterial );
+
+}
+
+PMREMGenerator.prototype = {
+
+	constructor: PMREMGenerator,
+
+	/**
+	 * Generates a PMREM from a supplied Scene, which can be faster than using an
+	 * image if networking bandwidth is low. Optional sigma specifies a blur radius
+	 * in radians to be applied to the scene before PMREM generation. Optional near
+	 * and far planes ensure the scene is rendered in its entirety (the cubeCamera
+	 * is placed at the origin).
+	 */
+	fromScene: function ( scene, sigma = 0, near = 0.1, far = 100 ) {
+
+		_oldTarget = _renderer.getRenderTarget();
+		var cubeUVRenderTarget = _allocateTargets();
+		_sceneToCubeUV( scene, near, far, cubeUVRenderTarget );
+		if ( sigma > 0 ) {
+
+			_blur( cubeUVRenderTarget, 0, 0, sigma );
+
+		}
+		_applyPMREM( cubeUVRenderTarget );
+		_cleanup( cubeUVRenderTarget );
+
+		return cubeUVRenderTarget;
+
+	},
+
+	/**
+	 * Generates a PMREM from an equirectangular texture, which can be either LDR
+	 * (RGBFormat) or HDR (RGBEFormat). The ideal input image size is 1k (1024 x 512),
+	 * as this matches best with the 256 x 256 cubemap output.
+	 */
+	fromEquirectangular: function ( equirectangular ) {
+
+		equirectangular.magFilter = NearestFilter;
+		equirectangular.minFilter = NearestFilter;
+		equirectangular.generateMipmaps = false;
+
+		return this.fromCubemap( equirectangular );
+
+	},
+
+	/**
+	 * Generates a PMREM from an cubemap texture, which can be either LDR
+	 * (RGBFormat) or HDR (RGBEFormat). The ideal input cube size is 256 x 256,
+	 * as this matches best with the 256 x 256 cubemap output.
+	 */
+	fromCubemap: function ( cubemap ) {
+
+		_oldTarget = _renderer.getRenderTarget();
+		var cubeUVRenderTarget = _allocateTargets( cubemap );
+		_textureToCubeUV( cubemap, cubeUVRenderTarget );
+		_applyPMREM( cubeUVRenderTarget );
+		_cleanup( cubeUVRenderTarget );
+
+		return cubeUVRenderTarget;
+
+	},
+
+	/**
+	 * Pre-compiles the cubemap shader. You can get faster start-up by invoking this method during
+	 * your texture's network fetch for increased concurrency.
+	 */
+	compileCubemapShader: function () {
+
+		if ( _cubemapShader == null ) {
+
+			_cubemapShader = _getCubemapShader();
+			_compileMaterial( _cubemapShader );
+
+		}
+
+	},
+
+	/**
+	 * Pre-compiles the equirectangular shader. You can get faster start-up by invoking this method during
+	 * your texture's network fetch for increased concurrency.
+	 */
+	compileEquirectangularShader: function () {
+
+		if ( _equirectShader == null ) {
+
+			_equirectShader = _getEquirectShader();
+			_compileMaterial( _equirectShader );
+
+		}
+
+	},
+
+	/**
+	 * Disposes of the PMREMGenerator's internal memory. Note that PMREMGenerator is a static class,
+	 * so you should not need more than one PMREMGenerator object. If you do, calling dispose() on
+	 * one of them will cause any others to also become unusable.
+	 */
+	dispose: function () {
+
+		_blurMaterial.dispose();
+
+		if ( _cubemapShader != null ) _cubemapShader.dispose();
+		if ( _equirectShader != null ) _equirectShader.dispose();
+
+		for ( var i = 0; i < _lodPlanes.length; i ++ ) {
+
+			_lodPlanes[ i ].dispose();
+
+		}
+
+	},
+
+};
 
 function _createPlanes() {
 
@@ -47340,6 +47484,297 @@ function _createPlanes() {
 
 	}
 	return { _lodPlanes, _sizeLods, _sigmas };
+
+}
+
+function _allocateTargets( equirectangular ) {
+
+	var params = {
+		magFilter: NearestFilter,
+		minFilter: NearestFilter,
+		generateMipmaps: false,
+		type: equirectangular ? equirectangular.type : UnsignedByteType,
+		format: equirectangular ? equirectangular.format : RGBEFormat,
+		encoding: equirectangular ? equirectangular.encoding : RGBEEncoding,
+		depthBuffer: false,
+		stencilBuffer: false
+	};
+	var cubeUVRenderTarget = _createRenderTarget( params );
+	cubeUVRenderTarget.depthBuffer = equirectangular ? false : true;
+	_pingPongRenderTarget = _createRenderTarget( params );
+	return cubeUVRenderTarget;
+
+}
+
+function _cleanup( outputTarget ) {
+
+	_pingPongRenderTarget.dispose();
+	_renderer.setRenderTarget( _oldTarget );
+	outputTarget.scissorTest = false;
+	// reset viewport and scissor
+	outputTarget.setSize( outputTarget.width, outputTarget.height );
+
+}
+
+function _sceneToCubeUV( scene, near, far, cubeUVRenderTarget ) {
+
+	var fov = 90;
+	var aspect = 1;
+	var cubeCamera = new PerspectiveCamera( fov, aspect, near, far );
+	var upSign = [ 1, 1, 1, 1, - 1, 1 ];
+	var forwardSign = [ 1, 1, - 1, - 1, - 1, 1 ];
+
+	var outputEncoding = _renderer.outputEncoding;
+	var toneMapping = _renderer.toneMapping;
+	var toneMappingExposure = _renderer.toneMappingExposure;
+	var clearColor = _renderer.getClearColor();
+	var clearAlpha = _renderer.getClearAlpha();
+
+	_renderer.toneMapping = LinearToneMapping;
+	_renderer.toneMappingExposure = 1.0;
+	_renderer.outputEncoding = LinearEncoding;
+	scene.scale.z *= - 1;
+
+	var background = scene.background;
+	if ( background && background.isColor ) {
+
+		background.convertSRGBToLinear();
+		// Convert linear to RGBE
+		var maxComponent = Math.max( background.r, background.g, background.b );
+		var fExp = Math.min( Math.max( Math.ceil( Math.log2( maxComponent ) ), - 128.0 ), 127.0 );
+		background = background.multiplyScalar( Math.pow( 2.0, - fExp ) );
+		var alpha = ( fExp + 128.0 ) / 255.0;
+		_renderer.setClearColor( background, alpha );
+		scene.background = null;
+
+	}
+
+	for ( var i = 0; i < 6; i ++ ) {
+
+		var col = i % 3;
+		if ( col == 0 ) {
+
+			cubeCamera.up.set( 0, upSign[ i ], 0 );
+			cubeCamera.lookAt( forwardSign[ i ], 0, 0 );
+
+		} else if ( col == 1 ) {
+
+			cubeCamera.up.set( 0, 0, upSign[ i ] );
+			cubeCamera.lookAt( 0, forwardSign[ i ], 0 );
+
+		} else {
+
+			cubeCamera.up.set( 0, upSign[ i ], 0 );
+			cubeCamera.lookAt( 0, 0, forwardSign[ i ] );
+
+		}
+		_setViewport( cubeUVRenderTarget,
+			col * SIZE_MAX, i > 2 ? SIZE_MAX : 0, SIZE_MAX, SIZE_MAX );
+		_renderer.setRenderTarget( cubeUVRenderTarget );
+		_renderer.render( scene, cubeCamera );
+
+	}
+
+	_renderer.toneMapping = toneMapping;
+	_renderer.toneMappingExposure = toneMappingExposure;
+	_renderer.outputEncoding = outputEncoding;
+	_renderer.setClearColor( clearColor, clearAlpha );
+	scene.scale.z *= - 1;
+
+}
+
+function _textureToCubeUV( texture, cubeUVRenderTarget ) {
+
+	var scene = new Scene();
+	if ( texture.isCubeTexture ) {
+
+		if ( _cubemapShader == null ) {
+
+			_cubemapShader = _getCubemapShader();
+
+		}
+
+	} else {
+
+		if ( _equirectShader == null ) {
+
+			_equirectShader = _getEquirectShader();
+
+		}
+
+	}
+	var material = texture.isCubeTexture ? _cubemapShader : _equirectShader;
+	scene.add( new Mesh( _lodPlanes[ 0 ], material ) );
+	var uniforms = material.uniforms;
+
+	uniforms[ 'envMap' ].value = texture;
+	if ( ! texture.isCubeTexture ) {
+
+		uniforms[ 'texelSize' ].value.set( 1.0 / texture.image.width, 1.0 / texture.image.height );
+
+	}
+	uniforms[ 'inputEncoding' ].value = ENCODINGS[ texture.encoding ];
+	uniforms[ 'outputEncoding' ].value = ENCODINGS[ texture.encoding ];
+
+	_setViewport( cubeUVRenderTarget, 0, 0, 3 * SIZE_MAX, 2 * SIZE_MAX );
+	_renderer.setRenderTarget( cubeUVRenderTarget );
+	_renderer.render( scene, _flatCamera );
+
+}
+
+function _compileMaterial( material ) {
+
+	var tmpScene = new Scene();
+	tmpScene.add( new Mesh( _lodPlanes[ 0 ], material ) );
+	_renderer.compile( tmpScene, _flatCamera );
+
+}
+
+function _createRenderTarget( params ) {
+
+	var cubeUVRenderTarget = new WebGLRenderTarget( 3 * SIZE_MAX, 3 * SIZE_MAX, params );
+	cubeUVRenderTarget.texture.mapping = CubeUVReflectionMapping;
+	cubeUVRenderTarget.texture.name = 'PMREM.cubeUv';
+	cubeUVRenderTarget.scissorTest = true;
+	return cubeUVRenderTarget;
+
+}
+
+function _setViewport( target, x, y, width, height ) {
+
+	target.viewport.set( x, y, width, height );
+	target.scissor.set( x, y, width, height );
+
+}
+
+function _applyPMREM( cubeUVRenderTarget ) {
+
+	var autoClear = _renderer.autoClear;
+	_renderer.autoClear = false;
+
+	for ( var i = 1; i < TOTAL_LODS; i ++ ) {
+
+		var sigma = Math.sqrt(
+			_sigmas[ i ] * _sigmas[ i ] -
+		_sigmas[ i - 1 ] * _sigmas[ i - 1 ] );
+		var poleAxis =
+		_axisDirections[ ( i - 1 ) % _axisDirections.length ];
+		_blur( cubeUVRenderTarget, i - 1, i, sigma, poleAxis );
+
+	}
+
+	_renderer.autoClear = autoClear;
+
+}
+
+/**
+ * This is a two-pass Gaussian blur for a cubemap. Normally this is done
+ * vertically and horizontally, but this breaks down on a cube. Here we apply
+ * the blur latitudinally (around the poles), and then longitudinally (towards
+ * the poles) to approximate the orthogonally-separable blur. It is least
+ * accurate at the poles, but still does a decent job.
+ */
+function _blur( cubeUVRenderTarget, lodIn, lodOut, sigma, poleAxis ) {
+
+	_halfBlur(
+		cubeUVRenderTarget,
+		_pingPongRenderTarget,
+		lodIn,
+		lodOut,
+		sigma,
+		'latitudinal',
+		poleAxis );
+
+	_halfBlur(
+		_pingPongRenderTarget,
+		cubeUVRenderTarget,
+		lodOut,
+		lodOut,
+		sigma,
+		'longitudinal',
+		poleAxis );
+
+}
+
+function _halfBlur( targetIn, targetOut, lodIn, lodOut, sigmaRadians, direction, poleAxis ) {
+
+	if ( direction !== 'latitudinal' && direction !== 'longitudinal' ) {
+
+		console.error(
+			'blur direction must be either latitudinal or longitudinal!' );
+
+	}
+
+	// Number of standard deviations at which to cut off the discrete approximation.
+	var STANDARD_DEVIATIONS = 3;
+
+	var blurScene = new Scene();
+	blurScene.add( new Mesh( _lodPlanes[ lodOut ], _blurMaterial ) );
+	var blurUniforms = _blurMaterial.uniforms;
+
+	var pixels = _sizeLods[ lodIn ] - 1;
+	var radiansPerPixel = isFinite( sigmaRadians ) ? Math.PI / ( 2 * pixels ) : 2 * Math.PI / ( 2 * MAX_SAMPLES - 1 );
+	var sigmaPixels = sigmaRadians / radiansPerPixel;
+	var samples = isFinite( sigmaRadians ) ? 1 + Math.floor( STANDARD_DEVIATIONS * sigmaPixels ) : MAX_SAMPLES;
+
+	if ( samples > MAX_SAMPLES ) {
+
+		console.warn( `sigmaRadians, ${
+			sigmaRadians}, is too large and will clip, as it requested ${
+			samples} samples when the maximum is set to ${MAX_SAMPLES}` );
+
+	}
+
+	var weights = [];
+	var sum = 0;
+
+	for ( var i = 0; i < MAX_SAMPLES; ++ i ) {
+
+		var x = i / sigmaPixels;
+		var weight = Math.exp( - x * x / 2 );
+		weights.push( weight );
+
+		if ( i == 0 ) {
+
+			sum += weight;
+
+		} else if ( i < samples ) {
+
+			sum += 2 * weight;
+
+		}
+
+	}
+
+	for ( var i = 0; i < weights.length; i ++ ) {
+
+		weights[ i ] = weights[ i ] / sum;
+
+	}
+
+	blurUniforms[ 'envMap' ].value = targetIn.texture;
+	blurUniforms[ 'samples' ].value = samples;
+	blurUniforms[ 'weights' ].value = weights;
+	blurUniforms[ 'latitudinal' ].value = direction === 'latitudinal';
+	if ( poleAxis ) {
+
+		blurUniforms[ 'poleAxis' ].value = poleAxis;
+
+	}
+	blurUniforms[ 'dTheta' ].value = radiansPerPixel;
+	blurUniforms[ 'mipInt' ].value = LOD_MAX - lodIn;
+	blurUniforms[ 'inputEncoding' ].value = ENCODINGS[ targetIn.texture.encoding ];
+	blurUniforms[ 'outputEncoding' ].value = ENCODINGS[ targetIn.texture.encoding ];
+
+	var outputSize = _sizeLods[ lodOut ];
+	var x = 3 * Math.max( 0, SIZE_MAX - 2 * outputSize );
+	var y = ( lodOut === 0 ? 0 : 2 * SIZE_MAX ) +
+	2 * outputSize *
+		( lodOut > LOD_MAX - LOD_MIN ? lodOut - LOD_MAX + LOD_MIN : 0 );
+
+	_setViewport( targetOut, x, y, 3 * outputSize, 2 * outputSize );
+	_renderer.setRenderTarget( targetOut );
+	_renderer.render( blurScene, _flatCamera );
 
 }
 
@@ -47416,6 +47851,105 @@ void main() {
 	} );
 
 	shaderMaterial.type = 'SphericalGaussianBlur';
+
+	return shaderMaterial;
+
+}
+
+function _getEquirectShader() {
+
+	var texelSize = new Vector2( 1, 1 );
+	var shaderMaterial = new RawShaderMaterial( {
+
+		uniforms: {
+			'envMap': { value: null },
+			'texelSize': { value: texelSize },
+			'inputEncoding': { value: ENCODINGS[ LinearEncoding ] },
+			'outputEncoding': { value: ENCODINGS[ LinearEncoding ] }
+		},
+
+		vertexShader: _getCommonVertexShader(),
+
+		fragmentShader: `
+precision mediump float;
+precision mediump int;
+varying vec3 vOutputDirection;
+uniform sampler2D envMap;
+uniform vec2 texelSize;
+
+${_getEncodings()}
+
+#define RECIPROCAL_PI 0.31830988618
+#define RECIPROCAL_PI2 0.15915494
+
+void main() {
+	gl_FragColor = vec4(0.0);
+	vec3 outputDirection = normalize(vOutputDirection);
+	vec2 uv;
+	uv.y = asin(clamp(outputDirection.y, -1.0, 1.0)) * RECIPROCAL_PI + 0.5;
+	uv.x = atan(outputDirection.z, outputDirection.x) * RECIPROCAL_PI2 + 0.5;
+	vec2 f = fract(uv / texelSize - 0.5);
+	uv -= f * texelSize;
+	vec3 tl = envMapTexelToLinear(texture2D(envMap, uv)).rgb;
+	uv.x += texelSize.x;
+	vec3 tr = envMapTexelToLinear(texture2D(envMap, uv)).rgb;
+	uv.y += texelSize.y;
+	vec3 br = envMapTexelToLinear(texture2D(envMap, uv)).rgb;
+	uv.x -= texelSize.x;
+	vec3 bl = envMapTexelToLinear(texture2D(envMap, uv)).rgb;
+	vec3 tm = mix(tl, tr, f.x);
+	vec3 bm = mix(bl, br, f.x);
+	gl_FragColor.rgb = mix(tm, bm, f.y);
+	gl_FragColor = linearToOutputTexel(gl_FragColor);
+}
+		`,
+
+		blending: NoBlending,
+		depthTest: false,
+		depthWrite: false
+
+	} );
+
+	shaderMaterial.type = 'EquirectangularToCubeUV';
+
+	return shaderMaterial;
+
+}
+
+function _getCubemapShader() {
+
+	var shaderMaterial = new RawShaderMaterial( {
+
+		uniforms: {
+			'envMap': { value: null },
+			'inputEncoding': { value: ENCODINGS[ LinearEncoding ] },
+			'outputEncoding': { value: ENCODINGS[ LinearEncoding ] }
+		},
+
+		vertexShader: _getCommonVertexShader(),
+
+		fragmentShader: `
+precision mediump float;
+precision mediump int;
+varying vec3 vOutputDirection;
+uniform samplerCube envMap;
+
+${_getEncodings()}
+
+void main() {
+	gl_FragColor = vec4(0.0);
+	gl_FragColor.rgb = envMapTexelToLinear(textureCube(envMap, vec3( - vOutputDirection.x, vOutputDirection.yz ))).rgb;
+	gl_FragColor = linearToOutputTexel(gl_FragColor);
+}
+		`,
+
+		blending: NoBlending,
+		depthTest: false,
+		depthWrite: false
+
+	} );
+
+	shaderMaterial.type = 'CubemapToCubeUV';
 
 	return shaderMaterial;
 
@@ -47580,6 +48114,10 @@ Object.assign( Path.prototype, {
 	}
 
 } );
+
+Object.create( CatmullRomCurve3.prototype );
+
+Object.create( CatmullRomCurve3.prototype );
 
 //
 
@@ -50385,7 +50923,7 @@ var OrbitControls = function ( object, domElement ) {
 
 };
 
-OrbitControls.prototype = Object.create( EventDispatcher.prototype );
+OrbitControls.prototype = Object.create( EventDispatcher$1.prototype );
 OrbitControls.prototype.constructor = OrbitControls;
 
 
@@ -50409,7 +50947,7 @@ var MapControls = function ( object, domElement ) {
 
 };
 
-MapControls.prototype = Object.create( EventDispatcher.prototype );
+MapControls.prototype = Object.create( EventDispatcher$1.prototype );
 MapControls.prototype.constructor = MapControls;
 
 /**
@@ -50527,20 +51065,25 @@ class ThreeScene {
         this.camera.position.z = -8;
 
         this.control = new OrbitControls(this.camera, this.canvas);
-        this.control.enabled = false;
+        this.control.enabled = true;
         this.scene = new Scene();
 
         this.lights = [];
-        this.lights.push(new SpotLight(0xffffff, 1));
-        this.lights[0].position.set(0, 30, 0);
-        // const light = new HemisphereLight(0xffffff, 0xffffff, 0.6);
-        // light.color.setHSL(0.8, 1, 1);
-        // light.groundColor.setHSL(1, 1, 0.8);
+        // TODO : https://threejs.org/editor/ pour setup des lights
+        // this.lights.push(new AmbientLight(0xffa500, .2))
+        this.lights.push(new HemisphereLight(0xffa500, 0x4ba787, .2));
+
+        const directionalLight = new DirectionalLight(0xffffff, 1);
+        directionalLight.position.set(0, 30, 0);
+
+        this.lights.push(directionalLight);
+        
         for (let i = 0; i < this.lights.length; i++)
             this.scene.add(this.lights[i]);
+
     }
 
-    render(delta) {
+    render() {
         this.control.update();
         this.renderer.render(this.scene, this.camera);
     }
@@ -50811,34 +51354,281 @@ class TouchController {
     }
 }
 
-var colors = {
+var UISVG = "<div class=\"gl-box\">\n  <svg viewBox=\"0 0 55 60\">\n    <text x=\"27\" y=\"56\" class=\"gl-fps\">00 FPS</text>\n    <text x=\"28\" y=\"8\" class=\"gl-mem\"></text>\n    <rect x=\"0\" y=\"14\" rx=\"4\" ry=\"4\" width=\"55\" height=\"32\"></rect>\n    <polyline class=\"gl-chart\"></polyline>\n  </svg>\n  <svg viewBox=\"0 0 14 60\" class=\"gl-cpu-svg\">\n    <line x1=\"7\" y1=\"38\" x2=\"7\" y2=\"11\" class=\"opacity\"/>\n    <line x1=\"7\" y1=\"38\" x2=\"7\" y2=\"11\" class=\"gl-cpu\" stroke-dasharray=\"0 27\"/>\n    <path d=\"M5.35 43c-.464 0-.812.377-.812.812v1.16c-.783.1972-1.421.812-1.595 1.624h-1.16c-.435 0-.812.348-.812.812s.348.812.812.812h1.102v1.653H1.812c-.464 0-.812.377-.812.812 0 .464.377.812.812.812h1.131c.1943.783.812 1.392 1.595 1.595v1.131c0 .464.377.812.812.812.464 0 .812-.377.812-.812V53.15h1.653v1.073c0 .464.377.812.812.812.464 0 .812-.377.812-.812v-1.131c.783-.1943 1.392-.812 1.595-1.595h1.131c.464 0 .812-.377.812-.812 0-.464-.377-.812-.812-.812h-1.073V48.22h1.102c.435 0 .812-.348.812-.812s-.348-.812-.812-.812h-1.16c-.1885-.783-.812-1.421-1.595-1.624v-1.131c0-.464-.377-.812-.812-.812-.464 0-.812.377-.812.812v1.073H6.162v-1.073c0-.464-.377-.812-.812-.812zm.58 3.48h2.088c.754 0 1.363.609 1.363 1.363v2.088c0 .754-.609 1.363-1.363 1.363H5.93c-.754 0-1.363-.609-1.363-1.363v-2.088c0-.754.609-1.363 1.363-1.363z\"/>\n  </svg>\n  <svg viewBox=\"0 0 14 60\" class=\"gl-gpu-svg\">\n    <line x1=\"7\" y1=\"38\" x2=\"7\" y2=\"11\" class=\"opacity\"/>\n    <line x1=\"7\" y1=\"38\" x2=\"7\" y2=\"11\" class=\"gl-gpu\" stroke-dasharray=\"0 27\"/>\n    <path d=\"M1.94775 43.3772a.736.736 0 10-.00416 1.472c.58535.00231.56465.1288.6348.3197.07015.18975.04933.43585.04933.43585l-.00653.05405v8.671a.736.736 0 101.472 0v-1.4145c.253.09522.52785.1495.81765.1495h5.267c1.2535 0 2.254-.9752 2.254-2.185v-3.105c0-1.2075-1.00625-2.185-2.254-2.185h-5.267c-.28865 0-.5635.05405-.8165.1495.01806-.16445.04209-.598-.1357-1.0787-.22425-.6072-.9499-1.2765-2.0125-1.2765zm2.9095 3.6455c.42435 0 .7659.36225.7659.8119v2.9785c0 .44965-.34155.8119-.7659.8119s-.7659-.36225-.7659-.8119v-2.9785c0-.44965.34155-.8119.7659-.8119zm4.117 0a2.3 2.3 0 012.3 2.3 2.3 2.3 0 01-2.3 2.3 2.3 2.3 0 01-2.3-2.3 2.3 2.3 0 012.3-2.3z\"/>\n  </svg>\n</div>";
+
+var UICSS = "#gl-bench {\n  position:absolute;\n  left:0;\n  top:0;\n  z-index:1000;\n  -webkit-user-select: none;\n  -moz-user-select: none;\n  user-select: none;\n}\n\n#gl-bench div {\n  position: relative;\n  display: block;\n  margin: 4px;\n  padding: 0 7px 0 10px;\n  background: #6c6;\n  border-radius: 15px;\n  cursor: pointer;\n  opacity: 0.9;\n}\n\n#gl-bench svg {\n  height: 60px;\n  margin: 0 -1px;\n}\n\n#gl-bench text {\n  font-size: 12px;\n  font-family: Helvetica,Arial,sans-serif;\n  font-weight: 700;\n  dominant-baseline: middle;\n  text-anchor: middle;\n}\n\n#gl-bench .gl-mem {\n  font-size: 9px;\n}\n\n#gl-bench line {\n  stroke-width: 5;\n  stroke: #112211;\n  stroke-linecap: round;\n}\n\n#gl-bench polyline {\n  fill: none;\n  stroke: #112211;\n  stroke-linecap: round;\n  stroke-linejoin: round;\n  stroke-width: 3.5;\n}\n\n#gl-bench rect {\n  fill: #448844;\n}\n\n#gl-bench .opacity {\n  stroke: #448844;\n}\n";
+
+class GLBench {
+
+  /** GLBench constructor
+   * @param { WebGLRenderingContext | WebGL2RenderingContext } gl context
+   * @param { Object | undefined } settings additional settings
+   */
+  constructor(gl, settings = {}) {
+    this.css = UICSS;
+    this.svg = UISVG;
+    this.paramLogger = () => {};
+    this.chartLogger = () => {};
+    this.chartLen = 20;
+    this.chartHz = 20;
+
+    this.names = [];
+    this.cpuAccums = [];
+    this.gpuAccums = [];  
+    this.activeAccums = [];
+    this.chart = new Array(this.chartLen);
+    this.now = () => (performance && performance.now) ? performance.now() : Date.now();
+    this.updateUI = () => {
+      [].forEach.call(this.nodes['gl-gpu-svg'], node => {
+        node.style.display = this.trackGPU ? 'inline' : 'none';
+      });
+    };
+
+    Object.assign(this, settings);
+    this.detected = 0;
+    this.finished = [];
+    this.isFramebuffer = 0;
+    this.frameId = 0;
+
+    // 120hz device detection
+    let rafId, n = 0, t0;
+    let loop = (t) => {
+      if (++n < 20) {
+        rafId = requestAnimationFrame(loop);
+      } else {
+        this.detected = Math.ceil(1e3 * n / (t - t0) / 70);
+        cancelAnimationFrame(rafId);
+      }
+      if (!t0) t0 = t;
+    };
+    requestAnimationFrame(loop);
+
+    // attach gpu profilers
+    if (gl) {
+      const glFinish = async (t, activeAccums) =>
+        Promise.resolve(setTimeout(() => {
+          gl.getError();
+          const dt = this.now() - t;
+          activeAccums.forEach((active, i) => {
+            if (active) this.gpuAccums[i] += dt;
+          });
+        }, 0));
+
+      const addProfiler = (fn, self, target) => function() {
+        const t = self.now();
+        fn.apply(target, arguments);
+        if (self.trackGPU) self.finished.push(glFinish(t, self.activeAccums.slice(0)));
+      };
+
+      ['drawArrays', 'drawElements', 'drawArraysInstanced',
+        'drawBuffers', 'drawElementsInstanced', 'drawRangeElements']
+        .forEach(fn => { if (gl[fn]) gl[fn] = addProfiler(gl[fn], this, gl); });
+
+      gl.getExtension = ((fn, self) => function() {
+        let ext = fn.apply(gl, arguments);
+        if (ext) {
+          ['drawElementsInstancedANGLE', 'drawBuffersWEBGL']
+            .forEach(fn => { if (ext[fn]) ext[fn] = addProfiler(ext[fn], self, ext); });
+        }
+        return ext;
+      })(gl.getExtension, this);
+    }
+
+    // init ui and ui loggers
+    if (!this.withoutUI) {
+      if (!this.dom) this.dom = document.body;
+      let elm = document.createElement('div');
+      elm.id = 'gl-bench';
+      this.dom.appendChild(elm);
+      this.dom.insertAdjacentHTML('afterbegin', '<style id="gl-bench-style">' + this.css + '</style>');
+      this.dom = elm;
+      this.dom.addEventListener('click', () => {
+        this.trackGPU = !this.trackGPU;
+        this.updateUI();
+      });
+
+      this.paramLogger = ((logger, dom, names) => {
+        const classes = ['gl-cpu', 'gl-gpu', 'gl-mem', 'gl-fps', 'gl-gpu-svg', 'gl-chart'];
+        const nodes = Object.assign({}, classes);
+        classes.forEach(c => nodes[c] = dom.getElementsByClassName(c));
+        this.nodes = nodes;
+        return (i, cpu, gpu, mem, fps, totalTime, frameId) => {
+          nodes['gl-cpu'][i].style.strokeDasharray = (cpu * 0.27).toFixed(0) + ' 100';
+          nodes['gl-gpu'][i].style.strokeDasharray = (gpu * 0.27).toFixed(0) + ' 100';
+          nodes['gl-mem'][i].innerHTML = names[i] ? names[i] : (mem ? 'mem: ' + mem.toFixed(0) + 'mb' : '');
+          nodes['gl-fps'][i].innerHTML = fps.toFixed(0) + ' FPS';
+          logger(names[i], cpu, gpu, mem, fps, totalTime, frameId);
+        }
+      })(this.paramLogger, this.dom, this.names);
+
+      this.chartLogger = ((logger, dom) => {
+        let nodes = { 'gl-chart': dom.getElementsByClassName('gl-chart') };
+        return (i, chart, circularId) => {
+          let points = '';
+          let len = chart.length;
+          for (let i = 0; i < len; i++) {
+            let id = (circularId + i + 1) % len;
+            if (chart[id] != undefined) {
+              points = points + ' ' + (55 * i / (len - 1)).toFixed(1) + ','
+                + (45 - chart[id] * 22 / 60 / this.detected).toFixed(1);
+            }
+          }
+          nodes['gl-chart'][i].setAttribute('points', points);
+          logger(this.names[i], chart, circularId);
+        }
+      })(this.chartLogger, this.dom);
+    }
+  }
+
+  /**
+   * Explicit UI add
+   * @param { string | undefined } name 
+   */
+  addUI(name) {
+    if (this.names.indexOf(name) == -1) {
+      this.names.push(name);
+      if (this.dom) {
+        this.dom.insertAdjacentHTML('beforeend', this.svg);
+        this.updateUI();
+      }
+      this.cpuAccums.push(0);
+      this.gpuAccums.push(0);
+      this.activeAccums.push(false);
+    }
+  }
+
+  /**
+   * Increase frameID
+   * @param { number | undefined } now
+   */
+  nextFrame(now) {
+    this.frameId++;
+    const t = now ? now : this.now();
+
+    // params
+    if (this.frameId <= 1) {
+      this.paramFrame = this.frameId;
+      this.paramTime = t;
+    } else {
+      let duration = t - this.paramTime;
+      if (duration >= 1e3) {
+        const frameCount = this.frameId - this.paramFrame;
+        const fps = frameCount / duration * 1e3;
+        for (let i = 0; i < this.names.length; i++) {
+          const cpu = this.cpuAccums[i] / duration * 100,
+            gpu = this.gpuAccums[i] / duration * 100,
+            mem = (performance && performance.memory) ? performance.memory.usedJSHeapSize / (1 << 20) : 0;
+          this.paramLogger(i, cpu, gpu, mem, fps, duration, frameCount);
+          this.cpuAccums[i] = 0;
+          Promise.all(this.finished).then(() => {
+            this.gpuAccums[i] = 0;
+            this.finished = [];
+          });
+        }
+        this.paramFrame = this.frameId;
+        this.paramTime = t;
+      }
+    }
+
+    // chart
+    if (!this.detected || !this.chartFrame) {
+      this.chartFrame = this.frameId;
+      this.chartTime = t;
+      this.circularId = 0;
+    } else {
+      let timespan = t - this.chartTime;
+      let hz = this.chartHz * timespan / 1e3;
+      while (--hz > 0 && this.detected) {
+        const frameCount = this.frameId - this.chartFrame;
+        const fps = frameCount / timespan * 1e3;
+        this.chart[this.circularId % this.chartLen] = fps;
+        for (let i = 0; i < this.names.length; i++) {
+          this.chartLogger(i, this.chart, this.circularId);
+        }
+        this.circularId++;
+        this.chartFrame = this.frameId;
+        this.chartTime = t;
+      }
+    }
+  }
+
+  /**
+   * Begin named measurement
+   * @param { string | undefined } name
+   */
+  begin(name) {
+    this.updateAccums(name);
+  }
+
+  /**
+   * End named measure
+   * @param { string | undefined } name
+   */
+  end(name) {
+    this.updateAccums(name);
+  }
+
+  updateAccums(name) {
+    let nameId = this.names.indexOf(name);
+    if (nameId == -1) {
+      nameId = this.names.length;
+      this.addUI(name);
+    }
+
+    const t = this.now();
+    const dt = t - this.t0;
+    for (let i = 0; i < nameId + 1; i++) {
+      if (this.activeAccums[i]) {
+        this.cpuAccums[i] += dt;
+      }
+    }    this.activeAccums[nameId] = !this.activeAccums[nameId];
+    this.t0 = t;
+  }
+
+}
+
+var color = {
 	blue: "0x88ebff",
 	lime: "0xe9ff88"
+};
+var friction = {
+	block: 0,
+	ground: 0.01,
+	player: 0.4
+};
+var restitution = {
+	block: 0.5,
+	player: 0.5
 };
 var level = {
 	name: "level1",
 	data: [
-		"111111111",
-		"1      21",
-		"1       1",
-		"1  11   1",
-		"1   11  1",
-		"1       1",
-		"1       1",
-		"111444111",
-		"116     1",
-		"1       1",
-		"1   1   1",
-		"1   11  1",
-		"1  5 1  1",
-		"1       1",
-		"1  3    1",
-		"1       1",
-		"111111111"
+		"1111171111",
+		"1        1",
+		"1        1",
+		"1  1111  1",
+		"1        1",
+		"1        1",
+		"114    411",
+		"1        1",
+		"1  4444  1",
+		"1  1111  1",
+		"1  5555  1",
+		"1        1",
+		"1        1",
+		"1        1",
+		"1    8   1",
+		"1        1",
+		"1        1",
+		"1    3   1",
+		"1        1",
+		"1111191111"
 	]
 };
 var constants = {
-	colors: colors,
+	color: color,
+	friction: friction,
+	restitution: restitution,
 	level: level
 };
 
@@ -50976,7 +51766,7 @@ module.exports = {
 
 },{"../package.json":1,"./collision/AABB":3,"./collision/ArrayCollisionMatrix":4,"./collision/Broadphase":5,"./collision/GridBroadphase":6,"./collision/NaiveBroadphase":7,"./collision/ObjectCollisionMatrix":8,"./collision/Ray":9,"./collision/RaycastResult":10,"./collision/SAPBroadphase":11,"./constraints/ConeTwistConstraint":12,"./constraints/Constraint":13,"./constraints/DistanceConstraint":14,"./constraints/HingeConstraint":15,"./constraints/LockConstraint":16,"./constraints/PointToPointConstraint":17,"./equations/ContactEquation":19,"./equations/Equation":20,"./equations/FrictionEquation":21,"./equations/RotationalEquation":22,"./equations/RotationalMotorEquation":23,"./material/ContactMaterial":24,"./material/Material":25,"./math/Mat3":27,"./math/Quaternion":28,"./math/Vec3":30,"./objects/Body":31,"./objects/RaycastVehicle":32,"./objects/RigidVehicle":33,"./objects/SPHSystem":34,"./objects/Spring":35,"./shapes/Box":37,"./shapes/ConvexPolyhedron":38,"./shapes/Cylinder":39,"./shapes/Heightfield":40,"./shapes/Particle":41,"./shapes/Plane":42,"./shapes/Shape":43,"./shapes/Sphere":44,"./shapes/Trimesh":45,"./solver/GSSolver":46,"./solver/Solver":47,"./solver/SplitSolver":48,"./utils/EventTarget":49,"./utils/Pool":51,"./utils/Vec3Pool":54,"./world/Narrowphase":55,"./world/World":56}],3:[function(_dereq_,module,exports){
 var Vec3 = _dereq_('../math/Vec3');
-var Utils = _dereq_('../utils/Utils');
+_dereq_('../utils/Utils');
 
 module.exports = AABB;
 
@@ -51353,8 +52143,8 @@ ArrayCollisionMatrix.prototype.setNumObjects = function(n) {
 var Body = _dereq_('../objects/Body');
 var Vec3 = _dereq_('../math/Vec3');
 var Quaternion = _dereq_('../math/Quaternion');
-var Shape = _dereq_('../shapes/Shape');
-var Plane = _dereq_('../shapes/Plane');
+_dereq_('../shapes/Shape');
+_dereq_('../shapes/Plane');
 
 module.exports = Broadphase;
 
@@ -51446,10 +52236,10 @@ Broadphase.prototype.intersectionTest = function(bodyA, bodyB, pairs1, pairs2){
  * @param {Array} pairs1 bodyA is appended to this array if intersection
  * @param {Array} pairs2 bodyB is appended to this array if intersection
  */
-var Broadphase_collisionPairs_r = new Vec3(), // Temp objects
-    Broadphase_collisionPairs_normal =  new Vec3(),
-    Broadphase_collisionPairs_quat =  new Quaternion(),
-    Broadphase_collisionPairs_relpos  =  new Vec3();
+var Broadphase_collisionPairs_r = new Vec3(); // Temp objects
+    new Vec3();
+    new Quaternion();
+    new Vec3();
 Broadphase.prototype.doBoundingSphereBroadphase = function(bodyA,bodyB,pairs1,pairs2){
     var r = Broadphase_collisionPairs_r;
     bodyB.position.vsub(bodyA.position,r);
@@ -51608,7 +52398,7 @@ GridBroadphase.prototype.constructor = GridBroadphase;
  * @param {Array} pairs2
  */
 var GridBroadphase_collisionPairs_d = new Vec3();
-var GridBroadphase_collisionPairs_binPos = new Vec3();
+new Vec3();
 GridBroadphase.prototype.collisionPairs = function(world,pairs1,pairs2){
     var N = world.numObjects(),
         bodies = world.bodies;
@@ -51642,10 +52432,10 @@ GridBroadphase.prototype.collisionPairs = function(world,pairs1,pairs2){
 
     var types = Shape.types;
     var SPHERE =            types.SPHERE,
-        PLANE =             types.PLANE,
-        BOX =               types.BOX,
-        COMPOUND =          types.COMPOUND,
-        CONVEXPOLYHEDRON =  types.CONVEXPOLYHEDRON;
+        PLANE =             types.PLANE;
+        types.BOX;
+        types.COMPOUND;
+        types.CONVEXPOLYHEDRON;
 
     var bins=this.bins,
 		binLengths=this.binLengths,
@@ -51835,7 +52625,7 @@ NaiveBroadphase.prototype.collisionPairs = function(world,pairs1,pairs2){
     }
 };
 
-var tmpAABB = new AABB();
+new AABB();
 
 /**
  * Returns all the bodies within an AABB.
@@ -51942,8 +52732,8 @@ module.exports = Ray;
 var Vec3 = _dereq_('../math/Vec3');
 var Quaternion = _dereq_('../math/Quaternion');
 var Transform = _dereq_('../math/Transform');
-var ConvexPolyhedron = _dereq_('../shapes/ConvexPolyhedron');
-var Box = _dereq_('../shapes/Box');
+_dereq_('../shapes/ConvexPolyhedron');
+_dereq_('../shapes/Box');
 var RaycastResult = _dereq_('../collision/RaycastResult');
 var Shape = _dereq_('../shapes/Shape');
 var AABB = _dereq_('../collision/AABB');
@@ -52194,16 +52984,16 @@ Ray.prototype.intersectShape = function(shape, quat, position, body){
     }
 };
 
-var vector = new Vec3();
-var normal = new Vec3();
+new Vec3();
+new Vec3();
 var intersectPoint = new Vec3();
 
 var a = new Vec3();
 var b = new Vec3();
 var c = new Vec3();
-var d = new Vec3();
+new Vec3();
 
-var tmpRaycastResult = new RaycastResult();
+new RaycastResult();
 
 /**
  * @method intersectBox
@@ -52299,9 +53089,9 @@ var intersectConvexOptions = {
  * @param  {Body} body
  */
 Ray.prototype.intersectHeightfield = function(shape, quat, position, body){
-    var data = shape.data,
-        w = shape.elementSize,
-        worldPillarOffset = new Vec3();
+    shape.data;
+        shape.elementSize;
+        var worldPillarOffset = new Vec3();
 
     // Convert the ray to local heightfield coordinates
     var localRay = new Ray(this.from, this.to);
@@ -52336,6 +53126,8 @@ Ray.prototype.intersectHeightfield = function(shape, quat, position, body){
 
     var minMax = [];
     shape.getRectMinMax(iMinX, iMinY, iMaxX, iMaxY, minMax);
+    minMax[0];
+    minMax[1];
 
     // // Bail out if the ray can't touch the bounding box
     // // TODO
@@ -52435,8 +53227,8 @@ Ray.prototype[Shape.types.SPHERE] = Ray.prototype.intersectSphere;
 
 
 var intersectConvex_normal = new Vec3();
-var intersectConvex_minDistNormal = new Vec3();
-var intersectConvex_minDistIntersect = new Vec3();
+new Vec3();
+new Vec3();
 var intersectConvex_vector = new Vec3();
 
 /**
@@ -52549,7 +53341,7 @@ var intersectTrimesh_localFrom = new Vec3();
 var intersectTrimesh_localTo = new Vec3();
 var intersectTrimesh_worldNormal = new Vec3();
 var intersectTrimesh_worldIntersectPoint = new Vec3();
-var intersectTrimesh_localAABB = new AABB();
+new AABB();
 var intersectTrimesh_triangles = [];
 var intersectTrimesh_treeTransform = new Transform();
 
@@ -52580,12 +53372,12 @@ Ray.prototype.intersectTrimesh = function intersectTrimesh(
     var localTo = intersectTrimesh_localTo;
     var worldIntersectPoint = intersectTrimesh_worldIntersectPoint;
     var worldNormal = intersectTrimesh_worldNormal;
-    var faceList = (options && options.faceList) || null;
+    (options && options.faceList) || null;
 
     // Checking faces
-    var indices = mesh.indices,
-        vertices = mesh.vertices,
-        normals = mesh.faceNormals;
+    var indices = mesh.indices;
+        mesh.vertices;
+        mesh.faceNormals;
 
     var from = this.from;
     var to = this.to;
@@ -52880,7 +53672,7 @@ RaycastResult.prototype.set = function(
 	this.distance = distance;
 };
 },{"../math/Vec3":30}],11:[function(_dereq_,module,exports){
-var Shape = _dereq_('../shapes/Shape');
+_dereq_('../shapes/Shape');
 var Broadphase = _dereq_('../collision/Broadphase');
 
 module.exports = SAPBroadphase;
@@ -53185,8 +53977,8 @@ SAPBroadphase.prototype.aabbQuery = function(world, aabb, result){
     if(axisIndex === 2){ axis = 'z'; }
 
     var axisList = this.axisList;
-    var lower = aabb.lowerBound[axis];
-    var upper = aabb.upperBound[axis];
+    aabb.lowerBound[axis];
+    aabb.upperBound[axis];
     for(var i = 0; i < axisList.length; i++){
         var b = axisList[i];
 
@@ -53204,11 +53996,11 @@ SAPBroadphase.prototype.aabbQuery = function(world, aabb, result){
 },{"../collision/Broadphase":5,"../shapes/Shape":43}],12:[function(_dereq_,module,exports){
 module.exports = ConeTwistConstraint;
 
-var Constraint = _dereq_('./Constraint');
+_dereq_('./Constraint');
 var PointToPointConstraint = _dereq_('./PointToPointConstraint');
 var ConeEquation = _dereq_('../equations/ConeEquation');
 var RotationalEquation = _dereq_('../equations/RotationalEquation');
-var ContactEquation = _dereq_('../equations/ContactEquation');
+_dereq_('../equations/ContactEquation');
 var Vec3 = _dereq_('../math/Vec3');
 
 /**
@@ -53265,8 +54057,8 @@ function ConeTwistConstraint(bodyA, bodyB, options){
 ConeTwistConstraint.prototype = new PointToPointConstraint();
 ConeTwistConstraint.constructor = ConeTwistConstraint;
 
-var ConeTwistConstraint_update_tmpVec1 = new Vec3();
-var ConeTwistConstraint_update_tmpVec2 = new Vec3();
+new Vec3();
+new Vec3();
 
 ConeTwistConstraint.prototype.update = function(){
     var bodyA = this.bodyA,
@@ -53445,11 +54237,11 @@ DistanceConstraint.prototype.update = function(){
 },{"../equations/ContactEquation":19,"./Constraint":13}],15:[function(_dereq_,module,exports){
 module.exports = HingeConstraint;
 
-var Constraint = _dereq_('./Constraint');
+_dereq_('./Constraint');
 var PointToPointConstraint = _dereq_('./PointToPointConstraint');
 var RotationalEquation = _dereq_('../equations/RotationalEquation');
 var RotationalMotorEquation = _dereq_('../equations/RotationalMotorEquation');
-var ContactEquation = _dereq_('../equations/ContactEquation');
+_dereq_('../equations/ContactEquation');
 var Vec3 = _dereq_('../math/Vec3');
 
 /**
@@ -53581,11 +54373,11 @@ HingeConstraint.prototype.update = function(){
 },{"../equations/ContactEquation":19,"../equations/RotationalEquation":22,"../equations/RotationalMotorEquation":23,"../math/Vec3":30,"./Constraint":13,"./PointToPointConstraint":17}],16:[function(_dereq_,module,exports){
 module.exports = LockConstraint;
 
-var Constraint = _dereq_('./Constraint');
+_dereq_('./Constraint');
 var PointToPointConstraint = _dereq_('./PointToPointConstraint');
 var RotationalEquation = _dereq_('../equations/RotationalEquation');
-var RotationalMotorEquation = _dereq_('../equations/RotationalMotorEquation');
-var ContactEquation = _dereq_('../equations/ContactEquation');
+_dereq_('../equations/RotationalMotorEquation');
+_dereq_('../equations/ContactEquation');
 var Vec3 = _dereq_('../math/Vec3');
 
 /**
@@ -53633,14 +54425,14 @@ function LockConstraint(bodyA, bodyB, options){
 LockConstraint.prototype = new PointToPointConstraint();
 LockConstraint.constructor = LockConstraint;
 
-var LockConstraint_update_tmpVec1 = new Vec3();
-var LockConstraint_update_tmpVec2 = new Vec3();
+new Vec3();
+new Vec3();
 
 LockConstraint.prototype.update = function(){
     var bodyA = this.bodyA,
-        bodyB = this.bodyB,
-        motor = this.motorEquation,
-        r1 = this.rotationalEquation1,
+        bodyB = this.bodyB;
+        this.motorEquation;
+        var r1 = this.rotationalEquation1,
         r2 = this.rotationalEquation2,
         r3 = this.rotationalEquation3;
 
@@ -53754,7 +54546,7 @@ PointToPointConstraint.prototype.update = function(){
 module.exports = ConeEquation;
 
 var Vec3 = _dereq_('../math/Vec3');
-var Mat3 = _dereq_('../math/Mat3');
+_dereq_('../math/Mat3');
 var Equation = _dereq_('./Equation');
 
 /**
@@ -53834,7 +54626,7 @@ module.exports = ContactEquation;
 
 var Equation = _dereq_('./Equation');
 var Vec3 = _dereq_('../math/Vec3');
-var Mat3 = _dereq_('../math/Mat3');
+_dereq_('../math/Mat3');
 
 /**
  * Contact/non-penetration constraint equation
@@ -53891,16 +54683,16 @@ ContactEquation.prototype.computeB = function(h){
         rjxn = ContactEquation_computeB_temp2,
 
         vi = bi.velocity,
-        wi = bi.angularVelocity,
-        fi = bi.force,
-        taui = bi.torque,
+        wi = bi.angularVelocity;
+        bi.force;
+        bi.torque;
 
-        vj = bj.velocity,
-        wj = bj.angularVelocity,
-        fj = bj.force,
-        tauj = bj.torque,
+        var vj = bj.velocity,
+        wj = bj.angularVelocity;
+        bj.force;
+        bj.torque;
 
-        penetrationVec = ContactEquation_computeB_temp3,
+        var penetrationVec = ContactEquation_computeB_temp3,
 
         GA = this.jacobianElementA,
         GB = this.jacobianElementB,
@@ -54187,12 +54979,12 @@ Equation.prototype.computeGiMGt = function(){
     return  result;
 };
 
-var addToWlambda_temp = new Vec3(),
-    addToWlambda_Gi = new Vec3(),
-    addToWlambda_Gj = new Vec3(),
-    addToWlambda_ri = new Vec3(),
-    addToWlambda_rj = new Vec3(),
-    addToWlambda_Mdiag = new Vec3();
+var addToWlambda_temp = new Vec3();
+    new Vec3();
+    new Vec3();
+    new Vec3();
+    new Vec3();
+    new Vec3();
 
 /**
  * Add constraint velocity to the bodies.
@@ -54243,7 +55035,7 @@ module.exports = FrictionEquation;
 
 var Equation = _dereq_('./Equation');
 var Vec3 = _dereq_('../math/Vec3');
-var Mat3 = _dereq_('../math/Mat3');
+_dereq_('../math/Mat3');
 
 /**
  * Constrains the slipping in a contact along a tangent
@@ -54268,11 +55060,11 @@ FrictionEquation.prototype.constructor = FrictionEquation;
 var FrictionEquation_computeB_temp1 = new Vec3();
 var FrictionEquation_computeB_temp2 = new Vec3();
 FrictionEquation.prototype.computeB = function(h){
-    var a = this.a,
-        b = this.b,
-        bi = this.bi,
-        bj = this.bj,
-        ri = this.ri,
+    this.a;
+        var b = this.b;
+        this.bi;
+        this.bj;
+        var ri = this.ri,
         rj = this.rj,
         rixt = FrictionEquation_computeB_temp1,
         rjxt = FrictionEquation_computeB_temp2,
@@ -54303,7 +55095,7 @@ FrictionEquation.prototype.computeB = function(h){
 module.exports = RotationalEquation;
 
 var Vec3 = _dereq_('../math/Vec3');
-var Mat3 = _dereq_('../math/Mat3');
+_dereq_('../math/Mat3');
 var Equation = _dereq_('./Equation');
 
 /**
@@ -54374,7 +55166,7 @@ RotationalEquation.prototype.computeB = function(h){
 module.exports = RotationalMotorEquation;
 
 var Vec3 = _dereq_('../math/Vec3');
-var Mat3 = _dereq_('../math/Mat3');
+_dereq_('../math/Mat3');
 var Equation = _dereq_('./Equation');
 
 /**
@@ -54414,12 +55206,12 @@ RotationalMotorEquation.prototype = new Equation();
 RotationalMotorEquation.prototype.constructor = RotationalMotorEquation;
 
 RotationalMotorEquation.prototype.computeB = function(h){
-    var a = this.a,
-        b = this.b,
-        bi = this.bi,
-        bj = this.bj,
+    this.a;
+        var b = this.b;
+        this.bi;
+        this.bj;
 
-        axisA = this.axisA,
+        var axisA = this.axisA,
         axisB = this.axisB,
 
         GA = this.jacobianElementA,
@@ -56003,11 +56795,11 @@ Vec3.prototype.clone = function(){
 module.exports = Body;
 
 var EventTarget = _dereq_('../utils/EventTarget');
-var Shape = _dereq_('../shapes/Shape');
+_dereq_('../shapes/Shape');
 var Vec3 = _dereq_('../math/Vec3');
 var Mat3 = _dereq_('../math/Mat3');
 var Quaternion = _dereq_('../math/Quaternion');
-var Material = _dereq_('../material/Material');
+_dereq_('../material/Material');
 var AABB = _dereq_('../collision/AABB');
 var Box = _dereq_('../shapes/Box');
 
@@ -56604,8 +57396,8 @@ Body.prototype.computeAABB = function(){
 };
 
 var uiw_m1 = new Mat3(),
-    uiw_m2 = new Mat3(),
-    uiw_m3 = new Mat3();
+    uiw_m2 = new Mat3();
+    new Mat3();
 
 /**
  * Update .inertiaWorld and .invInertiaWorld
@@ -56790,10 +57582,10 @@ Body.prototype.getVelocityAtWorldPoint = function(worldPoint, result){
 };
 
 },{"../collision/AABB":3,"../material/Material":25,"../math/Mat3":27,"../math/Quaternion":28,"../math/Vec3":30,"../shapes/Box":37,"../shapes/Shape":43,"../utils/EventTarget":49}],32:[function(_dereq_,module,exports){
-var Body = _dereq_('./Body');
+_dereq_('./Body');
 var Vec3 = _dereq_('../math/Vec3');
 var Quaternion = _dereq_('../math/Quaternion');
-var RaycastResult = _dereq_('../collision/RaycastResult');
+_dereq_('../collision/RaycastResult');
 var Ray = _dereq_('../collision/Ray');
 var WheelInfo = _dereq_('../objects/WheelInfo');
 
@@ -56855,13 +57647,13 @@ function RaycastVehicle(options){
     this.indexUpAxis = typeof(options.indexUpAxis) !== 'undefined' ? options.indexUpAxis : 2;
 }
 
-var tmpVec1 = new Vec3();
-var tmpVec2 = new Vec3();
-var tmpVec3 = new Vec3();
+new Vec3();
+new Vec3();
+new Vec3();
 var tmpVec4 = new Vec3();
 var tmpVec5 = new Vec3();
 var tmpVec6 = new Vec3();
-var tmpRay = new Ray();
+new Ray();
 
 /**
  * Add a wheel. For information about the options, see WheelInfo.
@@ -56889,7 +57681,7 @@ RaycastVehicle.prototype.setSteeringValue = function(value, wheelIndex){
     wheel.steering = value;
 };
 
-var torque = new Vec3();
+new Vec3();
 
 /**
  * Set the wheel force to apply on one of the wheels each time step
@@ -56917,7 +57709,7 @@ RaycastVehicle.prototype.setBrake = function(brake, wheelIndex){
  * @param {World} world
  */
 RaycastVehicle.prototype.addToWorld = function(world){
-    var constraints = this.constraints;
+    this.constraints;
     world.add(this.chassisBody);
     var that = this;
     this.preStepCallback = function(){
@@ -57074,7 +57866,7 @@ RaycastVehicle.prototype.updateSuspension = function(deltaTime) {
  * @param {World} world
  */
 RaycastVehicle.prototype.removeFromWorld = function(world){
-    var constraints = this.constraints;
+    this.constraints;
     world.remove(this.chassisBody);
     world.removeEventListener('preStep', this.preStepCallback);
     this.world = null;
@@ -57551,7 +58343,7 @@ RigidVehicle.prototype.addWheel = function(options){
     this.wheelForces.push(0);
 
     // Position constrain wheels
-    var zero = new Vec3();
+    new Vec3();
     var position = typeof(options.position) !== 'undefined' ? options.position.clone() : new Vec3();
 
     // Set position locally to the chassis
@@ -57711,12 +58503,12 @@ RigidVehicle.prototype.getWheelSpeed = function(wheelIndex){
 },{"../constraints/HingeConstraint":15,"../math/Vec3":30,"../shapes/Box":37,"../shapes/Sphere":44,"./Body":31}],34:[function(_dereq_,module,exports){
 module.exports = SPHSystem;
 
-var Shape = _dereq_('../shapes/Shape');
+_dereq_('../shapes/Shape');
 var Vec3 = _dereq_('../math/Vec3');
-var Quaternion = _dereq_('../math/Quaternion');
-var Particle = _dereq_('../shapes/Particle');
-var Body = _dereq_('../objects/Body');
-var Material = _dereq_('../material/Material');
+_dereq_('../math/Quaternion');
+_dereq_('../shapes/Particle');
+_dereq_('../objects/Body');
+_dereq_('../material/Material');
 
 /**
  * Smoothed-particle hydrodynamics system
@@ -58469,7 +59261,7 @@ Box.prototype.updateConvexPolyhedronRepresentation = function(){
         [1,2,6,5], // +x
     ];
 
-    var axes = [
+    [
         new V(0, 0, 1),
         new V(0, 1, 0),
         new V(1, 0, 0)
@@ -58534,7 +59326,7 @@ Box.prototype.updateBoundingSphereRadius = function(){
 };
 
 var worldCornerTempPos = new Vec3();
-var worldCornerTempNeg = new Vec3();
+new Vec3();
 Box.prototype.forEachWorldCorner = function(pos,quat,callback){
 
     var e = this.halfExtents;
@@ -58642,7 +59434,7 @@ module.exports = ConvexPolyhedron;
 
 var Shape = _dereq_('./Shape');
 var Vec3 = _dereq_('../math/Vec3');
-var Quaternion = _dereq_('../math/Quaternion');
+_dereq_('../math/Quaternion');
 var Transform = _dereq_('../math/Transform');
 
 /**
@@ -58723,7 +59515,7 @@ var computeEdges_tmpEdge = new Vec3();
 ConvexPolyhedron.prototype.computeEdges = function(){
     var faces = this.faces;
     var vertices = this.vertices;
-    var nv = vertices.length;
+    vertices.length;
     var edges = this.uniqueEdges;
 
     edges.length = 0;
@@ -59135,7 +59927,7 @@ ConvexPolyhedron.prototype.clipFaceAgainstHull = function(separatingNormal, posA
         }
     }
     // Clip the polygon to the back of the planes of all faces of hull A, that are adjacent to the witness face
-    var numContacts = pVtxIn.length;
+    pVtxIn.length;
     var numVerticesA = polyA.length;
     for(var e0=0; e0<numVerticesA; e0++){
         var a = hullA.vertices[polyA[e0]];
@@ -59152,7 +59944,7 @@ ConvexPolyhedron.prototype.clipFaceAgainstHull = function(separatingNormal, posA
         worldA1.copy(a);
         quatA.vmult(worldA1,worldA1);
         posA.vadd(worldA1,worldA1);
-        var planeEqWS1 = -worldA1.dot(planeNormalWS1);
+        -worldA1.dot(planeNormalWS1);
         var planeEqWS;
         {
             var otherFace = polyA.connectedFaces[e0];
@@ -59286,7 +60078,7 @@ ConvexPolyhedron.prototype.computeWorldVertices = function(position,quat){
     this.worldVerticesNeedsUpdate = false;
 };
 
-var computeLocalAABB_worldVert = new Vec3();
+new Vec3();
 ConvexPolyhedron.prototype.computeLocalAABB = function(aabbmin,aabbmax){
     var n = this.vertices.length,
         vertices = this.vertices;
@@ -59468,11 +60260,12 @@ ConvexPolyhedron.prototype.pointIsInside = function(p){
         verts = this.vertices,
         faces = this.faces,
         normals = this.faceNormals;
+    var positiveResult = null;
     var N = this.faces.length;
     var pointInside = ConvexPolyhedron_pointIsInside;
     this.getAveragePointLocal(pointInside);
     for(var i=0; i<N; i++){
-        var numVertices = this.faces[i].length;
+        this.faces[i].length;
         var n = normals[i];
         var v = verts[faces[i][0]]; // We only need one point in the face
 
@@ -59491,7 +60284,7 @@ ConvexPolyhedron.prototype.pointIsInside = function(p){
     }
 
     // If we got here, all dot products were of the same sign.
-    return  -1;
+    return positiveResult ? 1 : -1;
 };
 
 /**
@@ -59504,7 +60297,7 @@ ConvexPolyhedron.prototype.pointIsInside = function(p){
  * @param {Quaternion} quat
  * @param {array} result result[0] and result[1] will be set to maximum and minimum, respectively.
  */
-var project_worldVertex = new Vec3();
+new Vec3();
 var project_localAxis = new Vec3();
 var project_localOrigin = new Vec3();
 ConvexPolyhedron.project = function(hull, axis, pos, quat, result){
@@ -59555,7 +60348,7 @@ module.exports = Cylinder;
 
 var Shape = _dereq_('./Shape');
 var Vec3 = _dereq_('../math/Vec3');
-var Quaternion = _dereq_('../math/Quaternion');
+_dereq_('../math/Quaternion');
 var ConvexPolyhedron = _dereq_('./ConvexPolyhedron');
 
 /**
@@ -60232,9 +61025,9 @@ Plane.prototype.updateBoundingSphereRadius = function(){
 module.exports = Shape;
 
 var Shape = _dereq_('./Shape');
-var Vec3 = _dereq_('../math/Vec3');
-var Quaternion = _dereq_('../math/Quaternion');
-var Material = _dereq_('../material/Material');
+_dereq_('../math/Vec3');
+_dereq_('../math/Quaternion');
+_dereq_('../material/Material');
 
 /**
  * Base class for shapes
@@ -60391,7 +61184,7 @@ module.exports = Trimesh;
 
 var Shape = _dereq_('./Shape');
 var Vec3 = _dereq_('../math/Vec3');
-var Quaternion = _dereq_('../math/Quaternion');
+_dereq_('../math/Quaternion');
 var Transform = _dereq_('../math/Transform');
 var AABB = _dereq_('../collision/AABB');
 var Octree = _dereq_('../utils/Octree');
@@ -60597,8 +61390,8 @@ Trimesh.prototype.updateEdges = function(){
     for(var i=0; i < this.indices.length / 3; i++){
         var i3 = i * 3;
         var a = this.indices[i3],
-            b = this.indices[i3 + 1],
-            c = this.indices[i3 + 2];
+            b = this.indices[i3 + 1];
+            this.indices[i3 + 2];
         add();
         add();
         add();
@@ -60777,9 +61570,9 @@ var computeLocalAABB_worldVert = new Vec3();
 Trimesh.prototype.computeLocalAABB = function(aabb){
     var l = aabb.lowerBound,
         u = aabb.upperBound,
-        n = this.vertices.length,
-        vertices = this.vertices,
-        v = computeLocalAABB_worldVert;
+        n = this.vertices.length;
+        this.vertices;
+        var v = computeLocalAABB_worldVert;
 
     this.getVertex(0, v);
     l.copy(v);
@@ -60836,7 +61629,7 @@ Trimesh.prototype.updateBoundingSphereRadius = function(){
     this.boundingSphereRadius = Math.sqrt(max2);
 };
 
-var tempWorldVertex = new Vec3();
+new Vec3();
 var calculateWorldAABB_frame = new Transform();
 var calculateWorldAABB_aabb = new AABB();
 
@@ -60951,8 +61744,8 @@ Trimesh.createTorus = function (radius, tube, radialSegments, tubularSegments, a
 },{"../collision/AABB":3,"../math/Quaternion":28,"../math/Transform":29,"../math/Vec3":30,"../utils/Octree":50,"./Shape":43}],46:[function(_dereq_,module,exports){
 module.exports = GSSolver;
 
-var Vec3 = _dereq_('../math/Vec3');
-var Quaternion = _dereq_('../math/Quaternion');
+_dereq_('../math/Vec3');
+_dereq_('../math/Quaternion');
 var Solver = _dereq_('./Solver');
 
 /**
@@ -61147,8 +61940,8 @@ Solver.prototype.removeAllEquations = function(){
 },{}],48:[function(_dereq_,module,exports){
 module.exports = SplitSolver;
 
-var Vec3 = _dereq_('../math/Vec3');
-var Quaternion = _dereq_('../math/Quaternion');
+_dereq_('../math/Vec3');
+_dereq_('../math/Quaternion');
 var Solver = _dereq_('./Solver');
 var Body = _dereq_('../objects/Body');
 
@@ -61286,7 +62079,7 @@ SplitSolver.prototype.solve = function(dt,world){
             subsolver.addEquation(eqs[i]);
         }
 
-        var iter = subsolver.solve(dt,dummyWorld);
+        subsolver.solve(dt,dummyWorld);
         subsolver.removeAllEquations();
         n++;
     }
@@ -61553,7 +62346,7 @@ OctreeNode.prototype.subdivide = function() {
  */
 OctreeNode.prototype.aabbQuery = function(aabb, result) {
 
-    var nodeData = this.data;
+    this.data;
 
     // abort if the range does not intersect this node
     // if (!this.aabb.overlaps(aabb)){
@@ -61565,7 +62358,7 @@ OctreeNode.prototype.aabbQuery = function(aabb, result) {
 
     // Add child data
     // @todo unwrap recursion into a queue / loop, that's faster in JS
-    var children = this.children;
+    this.children;
 
 
     // for (var i = 0, N = this.children.length; i !== N; i++) {
@@ -61803,9 +62596,9 @@ var Shape = _dereq_('../shapes/Shape');
 var Ray = _dereq_('../collision/Ray');
 var Vec3 = _dereq_('../math/Vec3');
 var Transform = _dereq_('../math/Transform');
-var ConvexPolyhedron = _dereq_('../shapes/ConvexPolyhedron');
+_dereq_('../shapes/ConvexPolyhedron');
 var Quaternion = _dereq_('../math/Quaternion');
-var Solver = _dereq_('../solver/Solver');
+_dereq_('../solver/Solver');
 var Vec3Pool = _dereq_('../utils/Vec3Pool');
 var ContactEquation = _dereq_('../equations/ContactEquation');
 var FrictionEquation = _dereq_('../equations/FrictionEquation');
@@ -61964,7 +62757,7 @@ Narrowphase.prototype.createFrictionFromAverage = function(numContacts){
     averageContactPointB.setZero();
 
     var bodyA = c.bi;
-    var bodyB = c.bj;
+    c.bj;
     for(var i=0; i!==numContacts; i++){
         c = this.result[this.result.length - 1 - i];
         if(c.bodyA !== bodyA){
@@ -62211,7 +63004,7 @@ Narrowphase.prototype.planeTrimesh = function(
  */
 var sphereTrimesh_normal = new Vec3();
 var sphereTrimesh_relpos = new Vec3();
-var sphereTrimesh_projected = new Vec3();
+new Vec3();
 var sphereTrimesh_v = new Vec3();
 var sphereTrimesh_v2 = new Vec3();
 var sphereTrimesh_edgeVertexA = new Vec3();
@@ -62929,8 +63722,8 @@ Narrowphase.prototype.sphereConvex = function(si,sj,xi,xj,qi,qj,bi,bj){
     }
 };
 
-var planeBox_normal = new Vec3();
-var plane_to_corner = new Vec3();
+new Vec3();
+new Vec3();
 
 /**
  * @method planeBox
@@ -63250,7 +64043,7 @@ Narrowphase.prototype.sphereParticle = function(sj,si,xj,xi,qj,qi,bj,bi){
 // WIP
 var cqj = new Quaternion();
 var convexParticle_local = new Vec3();
-var convexParticle_normal = new Vec3();
+new Vec3();
 var convexParticle_penetratedFaceNormal = new Vec3();
 var convexParticle_vertexToParticle = new Vec3();
 var convexParticle_worldPenetrationVec = new Vec3();
@@ -63527,9 +64320,9 @@ var Shape = _dereq_('../shapes/Shape');
 var Vec3 = _dereq_('../math/Vec3');
 var Quaternion = _dereq_('../math/Quaternion');
 var GSSolver = _dereq_('../solver/GSSolver');
-var Vec3Pool = _dereq_('../utils/Vec3Pool');
-var ContactEquation = _dereq_('../equations/ContactEquation');
-var FrictionEquation = _dereq_('../equations/FrictionEquation');
+_dereq_('../utils/Vec3Pool');
+_dereq_('../equations/ContactEquation');
+_dereq_('../equations/FrictionEquation');
 var Narrowphase = _dereq_('./Narrowphase');
 var EventTarget = _dereq_('../utils/EventTarget');
 var ArrayCollisionMatrix = _dereq_('../collision/ArrayCollisionMatrix');
@@ -63720,7 +64513,7 @@ function World(){
 World.prototype = new EventTarget();
 
 // Temp stuff
-var tmpAABB1 = new AABB();
+new AABB();
 var tmpRay = new Ray();
 
 /**
@@ -64045,18 +64838,18 @@ var World_step_postStepEvent = {type:"postStep"}, // Reusable event objects to s
     World_step_oldContacts = [], // Pools for unused objects
     World_step_frictionEquationPool = [],
     World_step_p1 = [], // Reusable arrays for collision pairs
-    World_step_p2 = [],
-    World_step_gvec = new Vec3(), // Temporary vectors and quats
-    World_step_vi = new Vec3(),
-    World_step_vj = new Vec3(),
-    World_step_wi = new Vec3(),
-    World_step_wj = new Vec3(),
-    World_step_t1 = new Vec3(),
-    World_step_t2 = new Vec3(),
-    World_step_rixn = new Vec3(),
-    World_step_rjxn = new Vec3(),
-    World_step_step_q = new Quaternion(),
-    World_step_step_w = new Quaternion(),
+    World_step_p2 = [];
+    new Vec3(); // Temporary vectors and quats
+    new Vec3();
+    new Vec3();
+    new Vec3();
+    new Vec3();
+    new Vec3();
+    new Vec3();
+    new Vec3();
+    new Vec3();
+    new Quaternion();
+    var World_step_step_w = new Quaternion(),
     World_step_step_wq = new Quaternion(),
     invI_tau_dt = new Vec3();
 World.prototype.internalStep = function(dt){
@@ -64074,9 +64867,9 @@ World.prototype.internalStep = function(dt){
         DYNAMIC = Body.DYNAMIC,
         profilingStart,
         constraints = this.constraints,
-        frictionEquationPool = World_step_frictionEquationPool,
-        gnorm = gravity.norm(),
-        gx = gravity.x,
+        frictionEquationPool = World_step_frictionEquationPool;
+        gravity.norm();
+        var gx = gravity.x,
         gy = gravity.y,
         gz = gravity.z,
         i=0;
@@ -64174,9 +64967,9 @@ World.prototype.internalStep = function(dt){
 
         // Get current collision indeces
         var bi = c.bi,
-            bj = c.bj,
-            si = c.si,
-            sj = c.sj;
+            bj = c.bj;
+            c.si;
+            c.sj;
 
         // Get collision properties
         var cm;
@@ -64188,13 +64981,13 @@ World.prototype.internalStep = function(dt){
 
         // c.enabled = bi.collisionResponse && bj.collisionResponse && si.collisionResponse && sj.collisionResponse;
 
-        var mu = cm.friction;
+        cm.friction;
         // c.restitution = cm.restitution;
 
         // If friction or restitution were specified in the material, use them
         if(bi.material && bj.material){
             if(bi.material.friction >= 0 && bj.material.friction >= 0){
-                mu = bi.material.friction * bj.material.friction;
+                bi.material.friction * bj.material.friction;
             }
 
             if(bi.material.restitution >= 0 && bj.material.restitution >= 0){
@@ -64363,8 +65156,8 @@ World.prototype.internalStep = function(dt){
     var quatNormalize = stepnumber % (this.quatNormalizeSkip+1) === 0;
     var quatNormalizeFast = this.quatNormalizeFast;
     var half_dt = dt * 0.5;
-    var PLANE = Shape.types.PLANE,
-        CONVEX = Shape.types.CONVEXPOLYHEDRON;
+    Shape.types.PLANE;
+        Shape.types.CONVEXPOLYHEDRON;
 
     for(i=0; i!==N; i++){
         var b = bodies[i],
@@ -64458,9 +65251,9 @@ World.prototype.clearForces = function(){
     var bodies = this.bodies;
     var N = bodies.length;
     for(var i=0; i !== N; i++){
-        var b = bodies[i],
-            force = b.force,
-            tau = b.torque;
+        var b = bodies[i];
+            b.force;
+            b.torque;
 
         b.force.set(0,0,0);
         b.torque.set(0,0,0);
@@ -64711,102 +65504,58 @@ const _scaleMesh = (mesh, shape) => {
     }
 };
 
-class SystemManager {
-  constructor(world) {
-    this._systems = [];
-    this._executeSystems = []; // Systems that have `execute` method
-    this.world = world;
-    this.lastExecutedSystem = null;
-  }
-
-  registerSystem(System, attributes) {
-    if (
-      this._systems.find(s => s.constructor.name === System.name) !== undefined
-    ) {
-      console.warn(`System '${System.name}' already registered.`);
-      return this;
-    }
-
-    var system = new System(this.world, attributes);
-    if (system.init) system.init();
-    system.order = this._systems.length;
-    this._systems.push(system);
-    if (system.execute) {
-      this._executeSystems.push(system);
-      this.sortSystems();
-    }
-    return this;
-  }
-
-  sortSystems() {
-    this._executeSystems.sort((a, b) => {
-      return a.priority - b.priority || a.order - b.order;
-    });
-  }
-
-  getSystem(System) {
-    return this._systems.find(s => s instanceof System);
-  }
-
-  getSystems() {
-    return this._systems;
-  }
-
-  removeSystem(System) {
-    var index = this._systems.indexOf(System);
-    if (!~index) return;
-
-    this._systems.splice(index, 1);
-  }
-
-  executeSystem(system, delta, time) {
-    if (system.initialized) {
-      if (system.canExecute()) {
-        let startTime = performance.now();
-        system.execute(delta, time);
-        system.executeTime = performance.now() - startTime;
-        this.lastExecutedSystem = system;
-        system.clearEvents();
-      }
-    }
-  }
-
-  stop() {
-    this._executeSystems.forEach(system => system.stop());
-  }
-
-  execute(delta, time, forcePlay) {
-    this._executeSystems.forEach(
-      system =>
-        (forcePlay || system.enabled) && this.executeSystem(system, delta, time)
-    );
-  }
-
-  stats() {
-    var stats = {
-      numSystems: this._systems.length,
-      systems: {}
-    };
-
-    for (var i = 0; i < this._systems.length; i++) {
-      var system = this._systems[i];
-      var systemStats = (stats.systems[system.constructor.name] = {
-        queries: {}
-      });
-      for (var name in system.ctx) {
-        systemStats.queries[name] = system.ctx[name].stats();
-      }
-    }
-
-    return stats;
-  }
+/**
+ * Return the name of a component
+ * @param {Component} Component
+ * @private
+ */
+function getName(Component) {
+  return Component.name;
 }
+
+/**
+ * Return a valid property name for the Component
+ * @param {Component} Component
+ * @private
+ */
+function componentPropertyName(Component) {
+  return getName(Component);
+}
+
+/**
+ * Get a key from a list of components
+ * @param {Array(Component)} Components Array of components to generate the key
+ * @private
+ */
+function queryKey(Components) {
+  var names = [];
+  for (var n = 0; n < Components.length; n++) {
+    var T = Components[n];
+    if (typeof T === "object") {
+      var operator = T.operator === "not" ? "!" : T.operator;
+      names.push(operator + getName(T.Component));
+    } else {
+      names.push(getName(T));
+    }
+  }
+
+  return names.sort().join("-");
+}
+
+// Detector for browser's "window"
+const hasWindow = typeof window !== "undefined";
+
+// performance.now() "polyfill"
+const now =
+  hasWindow && typeof window.performance !== "undefined"
+    ? performance.now.bind(performance)
+    : Date.now.bind(Date);
 
 /**
  * @private
  * @class EventDispatcher
  */
-class EventDispatcher$1 {
+class EventDispatcher {
   constructor() {
     this._listeners = {};
     this.stats = {
@@ -64885,44 +65634,6 @@ class EventDispatcher$1 {
   }
 }
 
-/**
- * Return the name of a component
- * @param {Component} Component
- * @private
- */
-function getName(Component) {
-  return Component.name;
-}
-
-/**
- * Return a valid property name for the Component
- * @param {Component} Component
- * @private
- */
-function componentPropertyName(Component) {
-  return getName(Component);
-}
-
-/**
- * Get a key from a list of components
- * @param {Array(Component)} Components Array of components to generate the key
- * @private
- */
-function queryKey(Components) {
-  var names = [];
-  for (var n = 0; n < Components.length; n++) {
-    var T = Components[n];
-    if (typeof T === "object") {
-      var operator = T.operator === "not" ? "!" : T.operator;
-      names.push(operator + getName(T.Component));
-    } else {
-      names.push(getName(T));
-    }
-  }
-
-  return names.sort().join("-");
-}
-
 class Query {
   /**
    * @param {Array(Component)} Components List of types of components to query
@@ -64945,7 +65656,7 @@ class Query {
 
     this.entities = [];
 
-    this.eventDispatcher = new EventDispatcher$1();
+    this.eventDispatcher = new EventDispatcher();
 
     // This query is being used by a reactive system
     this.reactive = false;
@@ -65027,128 +65738,317 @@ Query.prototype.ENTITY_ADDED = "Query#ENTITY_ADDED";
 Query.prototype.ENTITY_REMOVED = "Query#ENTITY_REMOVED";
 Query.prototype.COMPONENT_CHANGED = "Query#COMPONENT_CHANGED";
 
-var nextId = 0;
+class System {
+  canExecute() {
+    if (this._mandatoryQueries.length === 0) return true;
 
-class Entity {
-  constructor(world) {
-    this._world = world || null;
-
-    // Unique ID for this entity
-    this.id = nextId++;
-
-    // List of components types the entity has
-    this._ComponentTypes = [];
-
-    // Instance of the components
-    this._components = {};
-
-    this._componentsToRemove = {};
-
-    // Queries where the entity is added
-    this.queries = [];
-
-    // Used for deferred removal
-    this._ComponentTypesToRemove = [];
-
-    this.alive = false;
-  }
-
-  // COMPONENTS
-
-  getComponent(Component, includeRemoved) {
-    var component = this._components[Component.name];
-
-    if (!component && includeRemoved === true) {
-      component = this._componentsToRemove[Component.name];
-    }
-
-    return  component;
-  }
-
-  getRemovedComponent(Component) {
-    return this._componentsToRemove[Component.name];
-  }
-
-  getComponents() {
-    return this._components;
-  }
-
-  getComponentsToRemove() {
-    return this._componentsToRemove;
-  }
-
-  getComponentTypes() {
-    return this._ComponentTypes;
-  }
-
-  getMutableComponent(Component) {
-    var component = this._components[Component.name];
-    for (var i = 0; i < this.queries.length; i++) {
-      var query = this.queries[i];
-      // @todo accelerate this check. Maybe having query._Components as an object
-      if (query.reactive && query.Components.indexOf(Component) !== -1) {
-        query.eventDispatcher.dispatchEvent(
-          Query.prototype.COMPONENT_CHANGED,
-          this,
-          component
-        );
+    for (let i = 0; i < this._mandatoryQueries.length; i++) {
+      var query = this._mandatoryQueries[i];
+      if (query.entities.length === 0) {
+        return false;
       }
     }
-    return component;
-  }
 
-  addComponent(Component, values) {
-    this._world.entityAddComponent(this, Component, values);
-    return this;
-  }
-
-  removeComponent(Component, forceRemove) {
-    this._world.entityRemoveComponent(this, Component, forceRemove);
-    return this;
-  }
-
-  hasComponent(Component, includeRemoved) {
-    return (
-      !!~this._ComponentTypes.indexOf(Component) ||
-      (includeRemoved === true && this.hasRemovedComponent(Component))
-    );
-  }
-
-  hasRemovedComponent(Component) {
-    return !!~this._ComponentTypesToRemove.indexOf(Component);
-  }
-
-  hasAllComponents(Components) {
-    for (var i = 0; i < Components.length; i++) {
-      if (!this.hasComponent(Components[i])) return false;
-    }
     return true;
   }
 
-  hasAnyComponents(Components) {
-    for (var i = 0; i < Components.length; i++) {
-      if (this.hasComponent(Components[i])) return true;
+  constructor(world, attributes) {
+    this.world = world;
+    this.enabled = true;
+
+    // @todo Better naming :)
+    this._queries = {};
+    this.queries = {};
+
+    this.priority = 0;
+
+    // Used for stats
+    this.executeTime = 0;
+
+    if (attributes && attributes.priority) {
+      this.priority = attributes.priority;
     }
-    return false;
+
+    this._mandatoryQueries = [];
+
+    this.initialized = true;
+
+    if (this.constructor.queries) {
+      for (var queryName in this.constructor.queries) {
+        var queryConfig = this.constructor.queries[queryName];
+        var Components = queryConfig.components;
+        if (!Components || Components.length === 0) {
+          throw new Error("'components' attribute can't be empty in a query");
+        }
+        var query = this.world.entityManager.queryComponents(Components);
+        this._queries[queryName] = query;
+        if (queryConfig.mandatory === true) {
+          this._mandatoryQueries.push(query);
+        }
+        this.queries[queryName] = {
+          results: query.entities
+        };
+
+        // Reactive configuration added/removed/changed
+        var validEvents = ["added", "removed", "changed"];
+
+        const eventMapping = {
+          added: Query.prototype.ENTITY_ADDED,
+          removed: Query.prototype.ENTITY_REMOVED,
+          changed: Query.prototype.COMPONENT_CHANGED // Query.prototype.ENTITY_CHANGED
+        };
+
+        if (queryConfig.listen) {
+          validEvents.forEach(eventName => {
+            if (!this.execute) {
+              console.warn(
+                `System '${
+                  this.constructor.name
+                }' has defined listen events (${validEvents.join(
+                  ", "
+                )}) for query '${queryName}' but it does not implement the 'execute' method.`
+              );
+            }
+
+            // Is the event enabled on this system's query?
+            if (queryConfig.listen[eventName]) {
+              let event = queryConfig.listen[eventName];
+
+              if (eventName === "changed") {
+                query.reactive = true;
+                if (event === true) {
+                  // Any change on the entity from the components in the query
+                  let eventList = (this.queries[queryName][eventName] = []);
+                  query.eventDispatcher.addEventListener(
+                    Query.prototype.COMPONENT_CHANGED,
+                    entity => {
+                      // Avoid duplicates
+                      if (eventList.indexOf(entity) === -1) {
+                        eventList.push(entity);
+                      }
+                    }
+                  );
+                } else if (Array.isArray(event)) {
+                  let eventList = (this.queries[queryName][eventName] = []);
+                  query.eventDispatcher.addEventListener(
+                    Query.prototype.COMPONENT_CHANGED,
+                    (entity, changedComponent) => {
+                      // Avoid duplicates
+                      if (
+                        event.indexOf(changedComponent.constructor) !== -1 &&
+                        eventList.indexOf(entity) === -1
+                      ) {
+                        eventList.push(entity);
+                      }
+                    }
+                  );
+                }
+              } else {
+                let eventList = (this.queries[queryName][eventName] = []);
+
+                query.eventDispatcher.addEventListener(
+                  eventMapping[eventName],
+                  entity => {
+                    // @fixme overhead?
+                    if (eventList.indexOf(entity) === -1)
+                      eventList.push(entity);
+                  }
+                );
+              }
+            }
+          });
+        }
+      }
+    }
   }
 
-  removeAllComponents(forceRemove) {
-    return this._world.entityRemoveAllComponents(this, forceRemove);
+  stop() {
+    this.executeTime = 0;
+    this.enabled = false;
   }
 
-  // EXTRAS
-
-  // Initialize the entity. To be used when returning an entity to the pool
-  reset() {
-    this.id = nextId++;
-    this._world = null;
-    this._ComponentTypes.length = 0;
-    this.queries.length = 0;
-    this._components = {};
+  play() {
+    this.enabled = true;
   }
 
-  remove(forceRemove) {
-    return this._world.removeEntity(this, forceRemove);
+  // @question rename to clear queues?
+  clearEvents() {
+    for (let queryName in this.queries) {
+      var query = this.queries[queryName];
+      if (query.added) {
+        query.added.length = 0;
+      }
+      if (query.removed) {
+        query.removed.length = 0;
+      }
+      if (query.changed) {
+        if (Array.isArray(query.changed)) {
+          query.changed.length = 0;
+        } else {
+          for (let name in query.changed) {
+            query.changed[name].length = 0;
+          }
+        }
+      }
+    }
+  }
+
+  toJSON() {
+    var json = {
+      name: this.constructor.name,
+      enabled: this.enabled,
+      executeTime: this.executeTime,
+      priority: this.priority,
+      queries: {}
+    };
+
+    if (this.constructor.queries) {
+      var queries = this.constructor.queries;
+      for (let queryName in queries) {
+        let query = this.queries[queryName];
+        let queryDefinition = queries[queryName];
+        let jsonQuery = (json.queries[queryName] = {
+          key: this._queries[queryName].key
+        });
+
+        jsonQuery.mandatory = queryDefinition.mandatory === true;
+        jsonQuery.reactive =
+          queryDefinition.listen &&
+          (queryDefinition.listen.added === true ||
+            queryDefinition.listen.removed === true ||
+            queryDefinition.listen.changed === true ||
+            Array.isArray(queryDefinition.listen.changed));
+
+        if (jsonQuery.reactive) {
+          jsonQuery.listen = {};
+
+          const methods = ["added", "removed", "changed"];
+          methods.forEach(method => {
+            if (query[method]) {
+              jsonQuery.listen[method] = {
+                entities: query[method].length
+              };
+            }
+          });
+        }
+      }
+    }
+
+    return json;
+  }
+}
+
+class SystemManager {
+  constructor(world) {
+    this._systems = [];
+    this._executeSystems = []; // Systems that have `execute` method
+    this.world = world;
+    this.lastExecutedSystem = null;
+  }
+
+  registerSystem(SystemClass, attributes) {
+    if (!(SystemClass.prototype instanceof System)) {
+      throw new Error(
+        `System '${SystemClass.name}' does not extends 'System' class`
+      );
+    }
+    if (this.getSystem(SystemClass) !== undefined) {
+      console.warn(`System '${SystemClass.name}' already registered.`);
+      return this;
+    }
+
+    var system = new SystemClass(this.world, attributes);
+    if (system.init) system.init(attributes);
+    system.order = this._systems.length;
+    this._systems.push(system);
+    if (system.execute) {
+      this._executeSystems.push(system);
+      this.sortSystems();
+    }
+    return this;
+  }
+
+  unregisterSystem(SystemClass) {
+    let system = this.getSystem(SystemClass);
+    if (system === undefined) {
+      console.warn(
+        `Can unregister system '${SystemClass.name}'. It doesn't exist.`
+      );
+      return this;
+    }
+
+    this._systems.splice(this._systems.indexOf(system), 1);
+
+    if (system.execute) {
+      this._executeSystems.splice(this._executeSystems.indexOf(system), 1);
+    }
+
+    // @todo Add system.unregister() call to free resources
+    return this;
+  }
+
+  sortSystems() {
+    this._executeSystems.sort((a, b) => {
+      return a.priority - b.priority || a.order - b.order;
+    });
+  }
+
+  getSystem(SystemClass) {
+    return this._systems.find(s => s instanceof SystemClass);
+  }
+
+  getSystems() {
+    return this._systems;
+  }
+
+  removeSystem(SystemClass) {
+    var index = this._systems.indexOf(SystemClass);
+    if (!~index) return;
+
+    this._systems.splice(index, 1);
+  }
+
+  executeSystem(system, delta, time) {
+    if (system.initialized) {
+      if (system.canExecute()) {
+        let startTime = now();
+        system.execute(delta, time);
+        system.executeTime = now() - startTime;
+        this.lastExecutedSystem = system;
+        system.clearEvents();
+      }
+    }
+  }
+
+  stop() {
+    this._executeSystems.forEach(system => system.stop());
+  }
+
+  execute(delta, time, forcePlay) {
+    this._executeSystems.forEach(
+      system =>
+        (forcePlay || system.enabled) && this.executeSystem(system, delta, time)
+    );
+  }
+
+  stats() {
+    var stats = {
+      numSystems: this._systems.length,
+      systems: {}
+    };
+
+    for (var i = 0; i < this._systems.length; i++) {
+      var system = this._systems[i];
+      var systemStats = (stats.systems[system.constructor.name] = {
+        queries: {},
+        executeTime: system.executeTime
+      });
+      for (var name in system.ctx) {
+        systemStats.queries[name] = system.ctx[name].stats();
+      }
+    }
+
+    return stats;
   }
 }
 
@@ -65179,7 +66079,7 @@ class ObjectPool {
     }
   }
 
-  aquire() {
+  acquire() {
     // Grow the list by 20%ish if we're out
     if (this.freeList.length <= 0) {
       this.expand(Math.round(this.count * 0.2) + 1);
@@ -65344,15 +66244,16 @@ class EntityManager {
     this._entitiesByNames = {};
 
     this._queryManager = new QueryManager(this);
-    this.eventDispatcher = new EventDispatcher$1();
-    this._entityPool = new ObjectPool(Entity);
+    this.eventDispatcher = new EventDispatcher();
+    this._entityPool = new ObjectPool(
+      this.world.options.entityClass,
+      this.world.options.entityPoolSize
+    );
 
     // Deferred deletion
     this.entitiesWithComponentsToRemove = [];
     this.entitiesToRemove = [];
     this.deferredRemovalEnabled = true;
-
-    this.numStateComponents = 0;
   }
 
   getEntityByName(name) {
@@ -65363,7 +66264,7 @@ class EntityManager {
    * Create a new entity
    */
   createEntity(name) {
-    var entity = this._entityPool.aquire();
+    var entity = this._entityPool.acquire();
     entity.alive = true;
     entity.name = name || "";
     if (name) {
@@ -65389,18 +66290,26 @@ class EntityManager {
    * @param {Object} values Optional values to replace the default attributes
    */
   entityAddComponent(entity, Component, values) {
-    if (~entity._ComponentTypes.indexOf(Component)) return;
+    if (~entity._ComponentTypes.indexOf(Component)) {
+      // @todo Just on debug mode
+      console.warn(
+        "Component type already exists on entity.",
+        entity,
+        Component.name
+      );
+      return;
+    }
 
     entity._ComponentTypes.push(Component);
 
     if (Component.__proto__ === SystemStateComponent) {
-      this.numStateComponents++;
+      entity.numStateComponents++;
     }
 
     var componentPool = this.world.componentsManager.getComponentsPool(
       Component
     );
-    var component = componentPool.aquire();
+    var component = componentPool.acquire();
 
     entity._components[Component.name] = component;
 
@@ -65451,10 +66360,10 @@ class EntityManager {
     this._queryManager.onEntityComponentRemoved(entity, Component);
 
     if (Component.__proto__ === SystemStateComponent) {
-      this.numStateComponents--;
+      entity.numStateComponents--;
 
       // Check if the entity was a ghost waiting for the last system state component to be removed
-      if (this.numStateComponents === 0 && !entity.alive) {
+      if (entity.numStateComponents === 0 && !entity.alive) {
         entity.remove();
       }
     }
@@ -65496,7 +66405,7 @@ class EntityManager {
 
     entity.alive = false;
 
-    if (this.numStateComponents === 0) {
+    if (entity.numStateComponents === 0) {
       // Remove from entity list
       this.eventDispatcher.dispatchEvent(ENTITY_REMOVED, entity);
       this._queryManager.onEntityRemoved(entity);
@@ -65512,6 +66421,10 @@ class EntityManager {
 
   _releaseEntity(entity, index) {
     this._entities.splice(index, 1);
+
+    if (this._entitiesByNames[entity.name]) {
+      delete this._entitiesByNames[entity.name];
+    }
 
     // Prevent any access and free
     entity._world = null;
@@ -65614,7 +66527,7 @@ class DummyObjectPool {
     this.T = T;
   }
 
-  aquire() {
+  acquire() {
     this.used++;
     this.count++;
     return new this.T();
@@ -65685,7 +66598,7 @@ class ComponentManager {
 }
 
 var name = "ecsy";
-var version = "0.2.2";
+var version = "0.2.5";
 var description = "Entity Component System in JS";
 var main = "build/ecsy.js";
 var module$1 = "build/ecsy.module.js";
@@ -65783,8 +66696,144 @@ var pjson = {
 
 const Version = pjson.version;
 
+var nextId = 0;
+
+class Entity {
+  constructor(world) {
+    this._world = world || null;
+
+    // Unique ID for this entity
+    this.id = nextId++;
+
+    // List of components types the entity has
+    this._ComponentTypes = [];
+
+    // Instance of the components
+    this._components = {};
+
+    this._componentsToRemove = {};
+
+    // Queries where the entity is added
+    this.queries = [];
+
+    // Used for deferred removal
+    this._ComponentTypesToRemove = [];
+
+    this.alive = false;
+
+    //if there are state components on a entity, it can't be removed completely
+    this.numStateComponents = 0;
+  }
+
+  // COMPONENTS
+
+  getComponent(Component, includeRemoved) {
+    var component = this._components[Component.name];
+
+    if (!component && includeRemoved === true) {
+      component = this._componentsToRemove[Component.name];
+    }
+
+    return  component;
+  }
+
+  getRemovedComponent(Component) {
+    return this._componentsToRemove[Component.name];
+  }
+
+  getComponents() {
+    return this._components;
+  }
+
+  getComponentsToRemove() {
+    return this._componentsToRemove;
+  }
+
+  getComponentTypes() {
+    return this._ComponentTypes;
+  }
+
+  getMutableComponent(Component) {
+    var component = this._components[Component.name];
+    for (var i = 0; i < this.queries.length; i++) {
+      var query = this.queries[i];
+      // @todo accelerate this check. Maybe having query._Components as an object
+      // @todo add Not components
+      if (query.reactive && query.Components.indexOf(Component) !== -1) {
+        query.eventDispatcher.dispatchEvent(
+          Query.prototype.COMPONENT_CHANGED,
+          this,
+          component
+        );
+      }
+    }
+    return component;
+  }
+
+  addComponent(Component, values) {
+    this._world.entityAddComponent(this, Component, values);
+    return this;
+  }
+
+  removeComponent(Component, forceImmediate) {
+    this._world.entityRemoveComponent(this, Component, forceImmediate);
+    return this;
+  }
+
+  hasComponent(Component, includeRemoved) {
+    return (
+      !!~this._ComponentTypes.indexOf(Component) ||
+      (includeRemoved === true && this.hasRemovedComponent(Component))
+    );
+  }
+
+  hasRemovedComponent(Component) {
+    return !!~this._ComponentTypesToRemove.indexOf(Component);
+  }
+
+  hasAllComponents(Components) {
+    for (var i = 0; i < Components.length; i++) {
+      if (!this.hasComponent(Components[i])) return false;
+    }
+    return true;
+  }
+
+  hasAnyComponents(Components) {
+    for (var i = 0; i < Components.length; i++) {
+      if (this.hasComponent(Components[i])) return true;
+    }
+    return false;
+  }
+
+  removeAllComponents(forceImmediate) {
+    return this._world.entityRemoveAllComponents(this, forceImmediate);
+  }
+
+  // EXTRAS
+
+  // Initialize the entity. To be used when returning an entity to the pool
+  reset() {
+    this.id = nextId++;
+    this._world = null;
+    this._ComponentTypes.length = 0;
+    this.queries.length = 0;
+    this._components = {};
+  }
+
+  remove(forceImmediate) {
+    return this._world.removeEntity(this, forceImmediate);
+  }
+}
+
+const DEFAULT_OPTIONS = {
+  entityPoolSize: 0,
+  entityClass: Entity
+};
+
 class World {
-  constructor() {
+  constructor(options = {}) {
+    this.options = Object.assign({}, DEFAULT_OPTIONS, options);
+
     this.componentsManager = new ComponentManager(this);
     this.entityManager = new EntityManager(this);
     this.systemManager = new SystemManager(this);
@@ -65793,14 +66842,14 @@ class World {
 
     this.eventQueues = {};
 
-    if (typeof CustomEvent !== "undefined") {
+    if (hasWindow && typeof CustomEvent !== "undefined") {
       var event = new CustomEvent("ecsy-world-created", {
         detail: { world: this, version: Version }
       });
       window.dispatchEvent(event);
     }
 
-    this.lastTime = performance.now();
+    this.lastTime = now();
   }
 
   registerComponent(Component) {
@@ -65810,6 +66859,11 @@ class World {
 
   registerSystem(System, attributes) {
     this.systemManager.registerSystem(System, attributes);
+    return this;
+  }
+
+  unregisterSystem(System) {
+    this.systemManager.unregisterSystem(System);
     return this;
   }
 
@@ -65823,7 +66877,7 @@ class World {
 
   execute(delta, time) {
     if (!delta) {
-      let time = performance.now();
+      time = now();
       delta = time - this.lastTime;
       this.lastTime = time;
     }
@@ -65853,196 +66907,6 @@ class World {
     };
 
     console.log(JSON.stringify(stats, null, 2));
-  }
-}
-
-class System {
-  canExecute() {
-    if (this._mandatoryQueries.length === 0) return true;
-
-    for (let i = 0; i < this._mandatoryQueries.length; i++) {
-      var query = this._mandatoryQueries[i];
-      if (query.entities.length === 0) {
-        return false;
-      }
-    }
-
-    return true;
-  }
-
-  constructor(world, attributes) {
-    this.world = world;
-    this.enabled = true;
-
-    // @todo Better naming :)
-    this._queries = {};
-    this.queries = {};
-
-    this.priority = 0;
-
-    // Used for stats
-    this.executeTime = 0;
-
-    if (attributes && attributes.priority) {
-      this.priority = attributes.priority;
-    }
-
-    this._mandatoryQueries = [];
-
-    this.initialized = true;
-
-    if (this.constructor.queries) {
-      for (var queryName in this.constructor.queries) {
-        var queryConfig = this.constructor.queries[queryName];
-        var Components = queryConfig.components;
-        if (!Components || Components.length === 0) {
-          throw new Error("'components' attribute can't be empty in a query");
-        }
-        var query = this.world.entityManager.queryComponents(Components);
-        this._queries[queryName] = query;
-        if (queryConfig.mandatory === true) {
-          this._mandatoryQueries.push(query);
-        }
-        this.queries[queryName] = {
-          results: query.entities
-        };
-
-        // Reactive configuration added/removed/changed
-        var validEvents = ["added", "removed", "changed"];
-
-        const eventMapping = {
-          added: Query.prototype.ENTITY_ADDED,
-          removed: Query.prototype.ENTITY_REMOVED,
-          changed: Query.prototype.COMPONENT_CHANGED // Query.prototype.ENTITY_CHANGED
-        };
-
-        if (queryConfig.listen) {
-          validEvents.forEach(eventName => {
-            // Is the event enabled on this system's query?
-            if (queryConfig.listen[eventName]) {
-              let event = queryConfig.listen[eventName];
-
-              if (eventName === "changed") {
-                query.reactive = true;
-                if (event === true) {
-                  // Any change on the entity from the components in the query
-                  let eventList = (this.queries[queryName][eventName] = []);
-                  query.eventDispatcher.addEventListener(
-                    Query.prototype.COMPONENT_CHANGED,
-                    entity => {
-                      // Avoid duplicates
-                      if (eventList.indexOf(entity) === -1) {
-                        eventList.push(entity);
-                      }
-                    }
-                  );
-                } else if (Array.isArray(event)) {
-                  let eventList = (this.queries[queryName][eventName] = []);
-                  query.eventDispatcher.addEventListener(
-                    Query.prototype.COMPONENT_CHANGED,
-                    (entity, changedComponent) => {
-                      // Avoid duplicates
-                      if (
-                        event.indexOf(changedComponent.constructor) !== -1 &&
-                        eventList.indexOf(entity) === -1
-                      ) {
-                        eventList.push(entity);
-                      }
-                    }
-                  );
-                }
-              } else {
-                let eventList = (this.queries[queryName][eventName] = []);
-
-                query.eventDispatcher.addEventListener(
-                  eventMapping[eventName],
-                  entity => {
-                    // @fixme overhead?
-                    if (eventList.indexOf(entity) === -1)
-                      eventList.push(entity);
-                  }
-                );
-              }
-            }
-          });
-        }
-      }
-    }
-  }
-
-  stop() {
-    this.executeTime = 0;
-    this.enabled = false;
-  }
-
-  play() {
-    this.enabled = true;
-  }
-
-  // @question rename to clear queues?
-  clearEvents() {
-    for (let queryName in this.queries) {
-      var query = this.queries[queryName];
-      if (query.added) {
-        query.added.length = 0;
-      }
-      if (query.removed) {
-        query.removed.length = 0;
-      }
-      if (query.changed) {
-        if (Array.isArray(query.changed)) {
-          query.changed.length = 0;
-        } else {
-          for (let name in query.changed) {
-            query.changed[name].length = 0;
-          }
-        }
-      }
-    }
-  }
-
-  toJSON() {
-    var json = {
-      name: this.constructor.name,
-      enabled: this.enabled,
-      executeTime: this.executeTime,
-      priority: this.priority,
-      queries: {}
-    };
-
-    if (this.constructor.queries) {
-      var queries = this.constructor.queries;
-      for (let queryName in queries) {
-        let query = this.queries[queryName];
-        let queryDefinition = queries[queryName];
-        let jsonQuery = (json.queries[queryName] = {
-          key: this._queries[queryName].key
-        });
-
-        jsonQuery.mandatory = queryDefinition.mandatory === true;
-        jsonQuery.reactive =
-          queryDefinition.listen &&
-          (queryDefinition.listen.added === true ||
-            queryDefinition.listen.removed === true ||
-            queryDefinition.listen.changed === true ||
-            Array.isArray(queryDefinition.listen.changed));
-
-        if (jsonQuery.reactive) {
-          jsonQuery.listen = {};
-
-          const methods = ["added", "removed", "changed"];
-          methods.forEach(method => {
-            if (query[method]) {
-              jsonQuery.listen[method] = {
-                entities: query[method].length
-              };
-            }
-          });
-        }
-      }
-    }
-
-    return json;
   }
 }
 
@@ -66080,12 +66944,7 @@ function createType(typeDefinition) {
   return typeDefinition;
 }
 
-/**
- * Standard types
- */
-var Types = {};
-
-Types.Number = createType({
+createType({
   baseType: Number,
   isSimpleType: true,
   create: defaultValue => {
@@ -66103,7 +66962,7 @@ Types.Number = createType({
   }
 });
 
-Types.Boolean = createType({
+createType({
   baseType: Boolean,
   isSimpleType: true,
   create: defaultValue => {
@@ -66121,7 +66980,7 @@ Types.Boolean = createType({
   }
 });
 
-Types.String = createType({
+createType({
   baseType: String,
   isSimpleType: true,
   create: defaultValue => {
@@ -66139,7 +66998,7 @@ Types.String = createType({
   }
 });
 
-Types.Array = createType({
+createType({
   baseType: Array,
   create: defaultValue => {
     if (typeof defaultValue !== "undefined") {
@@ -66236,6 +67095,11 @@ function includeRemoteIdHTML(remoteId) {
 }
 
 function enableRemoteDevtools(remoteId) {
+  if (!hasWindow) {
+    console.warn("Remote devtools not available outside the browser");
+    return;
+  }
+
   window.generateNewCode = () => {
     window.localStorage.clear();
     remoteId = generateId(6);
@@ -66321,19 +67185,23 @@ function enableRemoteDevtools(remoteId) {
   );
 }
 
-const urlParams = new URLSearchParams(window.location.search);
+if (hasWindow) {
+  const urlParams = new URLSearchParams(window.location.search);
 
-// @todo Provide a way to disable it if needed
-if (urlParams.has("enable-remote-devtools")) {
-  enableRemoteDevtools();
+  // @todo Provide a way to disable it if needed
+  if (urlParams.has("enable-remote-devtools")) {
+    enableRemoteDevtools();
+  }
 }
 
 class CameraTarget extends TagComponent { }
 class Controllable extends TagComponent { }
-// TODO damage(hp: 10) component 
-class Damageable extends TagComponent { }
-class BadBoy extends TagComponent { }
-class GoodBoy extends TagComponent { }
+
+class GroupEnemy extends TagComponent { }
+class GroupPlayer extends TagComponent { }
+class Collider extends TagComponent { }
+class Pickupable extends TagComponent { }
+class PathFinding extends TagComponent { }
 
 class DeleteAfter extends Component {
     constructor() {
@@ -66383,12 +67251,30 @@ class SpriteAnimation extends Component {
         this.frame = 0;
         this.move_left = [];
         this.move_right = [];
-        this.default = [];
+        this.idle = [];
+        // FEAT add more animations
+    }
+}
+
+class MeshAnimation extends Component {
+    constructor() {
+        super();
+        this.reset();
+    }
+
+    reset() {
+        this.time = 0;
+        this.current_animation = null;
+        this.current_animation_duration = 0;
+        this.target = null;
+        this.attack = null;
+        this.idle = null;
+        // FEAT add more animations
     }
 }
 
 // TODO weapon component 
-class ShootBullets extends Component {
+class DistanceWeapon extends Component {
     constructor() {
         super();
         this.reset();
@@ -66396,9 +67282,13 @@ class ShootBullets extends Component {
 
     reset() {
         // in s
-        this.time = 0;
-        // in s
-        this.delay = 0.1;
+        this.time = 10;
+        this.delay = 0.2;
+        this.impulse_speed = 5;
+        this.impulse_y = 0;
+        this.target = null;
+        this.time_to_next_target = 10;
+        this.delay_to_next_target = 0.5;
     }
 }
 
@@ -66409,8 +67299,82 @@ class ApplyImpulse extends Component {
     }
 
     reset() {
-        this.impulse = null; 
+        this.impulse = null;
         this.point = null;
+    }
+}
+
+class Damageable extends Component {
+    constructor() {
+        super();
+        this.reset();
+    }
+
+    reset() {
+        this.hp = 5;
+    }
+}
+
+class SpawnEnemies extends Component {
+    constructor() {
+        super();
+        this.reset();
+    }
+
+    reset() {
+        this.time = 0;
+        this.delay = 5;
+        this.emitting = true;
+        this.total_time = 0;
+        this.duration = 10;
+        this.cooldown = 25;
+    }
+}
+
+class DroppableOnDeath extends Component {
+    constructor() {
+        super();
+        this.reset();
+    }
+
+    reset() {
+        // the item to drop on death
+        this.item = null;
+    }
+}
+
+class Inventory extends Component {
+    constructor() {
+        super();
+        this.reset();
+    }
+
+    reset() {
+        this.money = 0;
+    }
+}
+
+class GUI extends Component {
+    constructor() {
+        super();
+        this.reset();
+    }
+
+    reset() {
+        this.active = false;
+        this.map = new Map();
+    }
+}
+
+class Selectionable extends Component {
+    constructor() {
+        super();
+        this.reset();
+    }
+
+    reset() {
+        this.active = false;
+        this.timer = 0;
     }
 }
 
@@ -66460,35 +67424,52 @@ SceneSystem.queries = {
     }
 };
 
+// raycast for fast objects (for CCD - Continuous Collision Detection)
+// from https://github.com/schteppe/cannon.js/issues/202
+// const raycaster = new THREE.Raycaster();
+
+// // Must predict next position and check if the ray trajectory if it intersects anything!
+// function limitSphere(ball, objs){
+//     var arr;
+//     raycaster.set(ball.position.clone(), ball.velocity.clone().unit());
+//     raycaster.far = ball.velocity.length();
+//     arr = raycaster.intersectObjects(objs);
+
+//     if(arr.length){
+//         ball.position.copy(arr[0].point);
+//     }
+// }
+
 class PhysicSystem extends System {
     constructor(world, attributes) {
         super(world, attributes);
         this.cannon_world = attributes.cannon_world;
         this.controller = attributes.controller;
+        this.precision = 3;
     }
 
     init() { }
 
     execute(delta) {
-        const entities = this.queries.entities;
         // removed 
-        entities.removed.forEach(e => {
+        this.queries.entities.removed.forEach(e => {
             // get the body
             const body = e.getRemovedComponent(CannonBody).value;
             this.cannon_world.remove(body);
         });
 
         // added
-        entities.added.forEach(e => {
+        this.queries.entities.added.forEach(e => {
             const body = e.getComponent(CannonBody).value;
+            body.entity_data = e;
             this.cannon_world.add(body);
         });
 
-        entities.results.forEach(e => {
+        this.queries.entities.results.forEach(e => {
             const body = e.getComponent(CannonBody).value;
-            if (body.position.y < -20) {
-                console.log('goodbye!');
-                e.remove();
+            if (body.position.y < -40) {
+                console.log("Outsite of the world");
+                e.addComponent(DeleteAfter);
             }
         });
 
@@ -66496,25 +67477,50 @@ class PhysicSystem extends System {
         this.queries.controllables.results.forEach(e => {
             const body = e.getComponent(CannonBody).value;
             const dir = this.controller.state.dir;
-            let force = new cannon.Vec3(dir.x, 0, dir.y)
-                .scale(-0.5);
+            const power = 0.4;
+            let force = new cannon.Vec3(dir.x * power, 0, dir.y * power)
+                .scale(-1);
             body.applyImpulse(force, body.position);
         });
 
-        
+
         // impulses
         this.queries.impulses.added.forEach(e => {
             const body = e.getComponent(CannonBody).value;
             const force = e.getComponent(ApplyImpulse);
             body.applyImpulse(force.impulse, force.point);
+            e.removeComponent(ApplyImpulse);
+        });
+
+        // colliders
+        this.queries.colliders.added.forEach(e => {
+            const body = e.getComponent(CannonBody).value;
+            body.addEventListener('collide', (e) => this.collide(e));
         });
 
         // sim
-        // TODO loop
-        this.cannon_world.step(delta / 4);
-        this.cannon_world.step(delta / 2);
+        for (let i = 0; i < this.precision; i++) {
+            this.cannon_world.step(delta / this.precision);
+        }
     }
 
+    collide(e) {
+        // ignore tiny collisions
+        const impact = Math.abs(e.contact.getImpactVelocityAlongNormal());
+        if (impact < 5.0) return
+        const bodies = [e.contact.bi, e.contact.bj];
+
+        // damages
+        bodies.forEach((body) => {
+            const entity = body.entity_data;
+            if (entity == null) return;
+            const damageable = entity.getComponent(Damageable);
+            if (damageable == null) return;
+
+            damageable.hp -= 1;
+            if (damageable.hp <= 0) entity.addComponent(DeleteAfter);
+        });
+    }
 }
 
 PhysicSystem.queries = {
@@ -66533,6 +67539,12 @@ PhysicSystem.queries = {
         listen: {
             added: true
         }
+    },
+    colliders: {
+        components: [Collider, CannonBody],
+        listen: {
+            added: true
+        }
     }
 };
 
@@ -66544,7 +67556,7 @@ class TimerSystem extends System {
     init() {}
 
     execute(delta) {
-        // delete after n.ms
+        // delete after xxx ms
         this.queries.deleteAfter.results.forEach(e => {
             const time_left = (e.getMutableComponent(DeleteAfter).seconds -= delta);
             if(time_left <= 0) 
@@ -66560,52 +67572,219 @@ TimerSystem.queries = {
     }
 };
 
+class GUIStylesOptions {
+    constructor(options = {}) {
+        this.fillStyle = options.fillStyle || '#ffffff';
+        this.strokeStyle = options.strokeStyle || '#000000';
+        // text styles
+        this.textFillStyle = options.textFillStyle || this.fillStyle;
+        this.textStrokeStyle = options.textStrokeStyle || this.strokeStyle;
+        // line styles
+        this.lineStrokeStyle = options.lineStrokeStyle || this.strokeStyle;
+        // progress bars (foreground and background)
+        this.fgBarStrokeStyle = options.fgBarStrokeStyle || '#ffffff';
+        this.bgBarStrokeStyle = options.bgBarStrokeStyle || this.strokeStyle;
+
+        this.fontsize = options.fontsize || 32;
+        this.fontface = options.fontface || 'monospace';
+        this.lineWidth = ~~(this.fontsize / 4);
+        this.doubleBorderSize = this.lineWidth * 2;
+        this.font = `bold ${this.fontsize}px ${this.fontface}`;
+    }
+}
+
+class GUIText {
+    constructor(text) {
+        this.text = text;
+    }
+}
+
+class GUICircularProgress {
+    constructor(progress, radius = 32) {
+        this.progress = progress;
+        this.radius = radius;
+    }
+}
+
+class GUIBorders {
+    constructor(left=false, top=false, right=false, bottom=false) {
+        this.left = left;
+        this.top = top;
+        this.right = right;
+        this.bottom = bottom;
+    }
+}
+
+// https://threejsfundamentals.org/threejs/lessons/threejs-canvas-textures.html
+class GUITexture {
+    constructor(
+        elements = [],
+        styles = new GUIStylesOptions()) {
+            elements = [].concat(elements);
+            this.ctx = document.createElement('canvas').getContext('2d');
+            this.width = this.height = 0;
+            this.styles = styles;
+            this.applyStyles();
+            this.computeSize(elements);
+            this.applyStyles();
+            let x = this.styles.lineWidth;
+            let y = this.styles.lineWidth;
+            for (let e of elements) {
+                if (e instanceof GUIText) { 
+                    this.drawText(e.text, x, y);
+                    y += this.styles.fontsize;
+                }
+                else if (e instanceof GUICircularProgress) {
+                    this.drawCircularProgressBar(e.radius, e.progress, x, y);
+                    y += 2 * e.radius;
+                }
+                else if (e instanceof GUIBorders) {
+                    this.drawBorders(e.left, e.top, e.right, e.bottom, 0, 0);
+                }
+                // blank separator
+                y += this.styles.lineWidth;
+            }
+            return this.ctx.canvas;
+    }
+
+    applyStyles() {
+        this.ctx.font = this.styles.font;
+        this.ctx.lineWidth = this.styles.lineWidth;
+        this.ctx.strokeStyle = this.styles.strokeStyle;
+        this.ctx.fillStyle = this.styles.fillStyle;
+        this.ctx.textBaseline = 'top';
+    }
+
+    computeSize(elements) {
+        for (let e of elements) {
+            if (e instanceof GUIText) { 
+                const width = Math.ceil(this.ctx.measureText(e.text).width);
+                this.width = Math.max(this.width, width);
+                this.height += this.styles.fontsize;
+            }
+            else if (e instanceof GUICircularProgress) {
+                this.width = Math.max(this.width, 2 * e.radius);
+                this.height += 2 * e.radius;
+            }
+            
+            // space separator
+            this.height += this.styles.lineWidth; 
+        }
+        // add borders sizes
+        this.width += this.styles.doubleBorderSize;
+        // resize
+        this.ctx.canvas.width = this.width;
+        this.ctx.canvas.height = this.height;
+        this.ctx.canvas.style.width = this.width + "px";
+        this.ctx.canvas.style.height = this.height + "px";
+    }
+
+    drawText(text, x, y) {
+        this.ctx.save();
+        this.ctx.beginPath();
+        this.ctx.strokeStyle = this.styles.textStrokeStyle;
+        this.ctx.fillStyle = this.styles.textFillStyle;
+        this.ctx.moveTo(x, y);
+        this.ctx.strokeText(text, x, y);
+        this.ctx.fillText(text, x, y);
+        this.ctx.closePath();
+        this.ctx.restore();
+    }
+
+    drawLine(x0, y0, x1, y1) {
+        this.ctx.save();
+        this.ctx.beginPath();
+        this.ctx.strokeStyle = this.styles.lineStrokeStyle;
+        this.ctx.moveTo(x0, y0);
+        this.ctx.lineTo(x1, y1);
+        this.ctx.stroke();
+        this.ctx.closePath();
+        this.ctx.restore();
+    }
+
+    drawCircularProgressBar(radius, progress, x, y) {
+        progress = parseFloat(progress);
+        
+        // center point
+        const cx = x + radius;
+        const cy = y + radius;
+        
+        // angles
+        const start = Math.PI / 2;
+        const end = start + progress * Math.PI * 2;
+        const bgEnd = start + Math.PI * 2;
+
+        // adapt radius to external border of the ring
+        radius -= this.styles.lineWidth;
+        
+        this.ctx.save();
+        this.ctx.moveTo(x, y);
+        // background
+        this.ctx.beginPath();
+        this.ctx.lineWidth = this.styles.doubleBorderSize;
+        this.ctx.strokeStyle = this.styles.bgBarStrokeStyle;
+        this.ctx.arc(cx, cy, radius, start, bgEnd, false);
+        this.ctx.stroke();
+        this.ctx.closePath();
+
+        // foreground
+        this.ctx.beginPath();
+        this.ctx.lineWidth = this.styles.lineWidth;
+        this.ctx.strokeStyle = this.styles.fgBarStrokeStyle;
+        this.ctx.arc(cx, cy, radius, start, end, false);
+        this.ctx.stroke();
+        this.ctx.closePath();
+        this.ctx.restore();
+    }
+
+    drawBorders(left, top, right, bottom) {
+        const w = this.width;
+        const h = this.height; 
+        const r = 4;
+        if(left)    this.drawLine(0, r, 0, h-r);
+        if(top)     this.drawLine(r, 0, w-r, 0);
+        if(right)   this.drawLine(w, r, w, h-r);
+        if(bottom)  this.drawLine(r, h, w-r, h);   
+    }
+}
+
 class MeshFactory {
 
-    static createText(position = new Vector3(), text = 'hi', options = {}) {
-        // https://threejsfundamentals.org/threejs/lessons/threejs-canvas-textures.html
-        // TODO more options
-        const fillStyle = options.fillStyle || '#ffffff';
-        const strokeStyle = options.strokeStyle || '#000000';
-        const fontsize = options.fontsize || 32;
-        const fontface = options.fontface || 'monospace';
-        const lineWidth = ~~(fontsize / 4);
-        const doubleBorderSize = lineWidth * 2;
-        const font = `bold ${fontsize}px ${fontface}`;
-        // ctx 
-        const ctx = document.createElement('canvas').getContext('2d');
-        ctx.font = font;
-        ctx.lineWidth = lineWidth;
-        ctx.strokeStyle = strokeStyle;
-        ctx.fillStyle = fillStyle;
+    // TODO rename to createGUIMaterial
+    static createGUITexture(infos = new Map(), options = new GUIStylesOptions()) {
+        options.bgBarStrokeStyle = "#ff88ff";
+        options.fgBarStrokeStyle = "#88ffff";
+        const elements = Array.from(infos.values());
+        elements.push(new GUIBorders(true, true, true, true));
+        const canvas = new GUITexture(elements, options);
+        const texture = new Texture(canvas);
+        texture.minFilter = LinearMipmapLinearFilter;
+        texture.magFilter = NearestFilter;
+        texture.needsUpdate = true;
+        return texture;
+    }
 
-        // size
-        const width = ~~ctx.measureText(text).width + doubleBorderSize + 1;
-        const height = fontsize + doubleBorderSize;
-        ctx.canvas.width = width;
-        ctx.canvas.height = height;
-        ctx.canvas.style.width = width + "px";
-        ctx.canvas.style.height = height + "px";
+    static createSelectionTexture(progress = 0.0, options = new GUIStylesOptions()) {
+        options.bgBarStrokeStyle = "#ff88ff";
+        options.fgBarStrokeStyle = "#88ffff";
+        const canvas = new GUITexture(new GUICircularProgress(progress, 60), options);
+        const texture = new Texture(canvas);
+        texture.minFilter = LinearMipmapLinearFilter;
+        texture.magFilter = NearestFilter;
+        texture.needsUpdate = true;
+        return texture;
+    }
 
-        // need to set font again after resizing canvas
-        ctx.font = font;
-        ctx.lineWidth = lineWidth;
-        ctx.strokeStyle = strokeStyle;
-        ctx.fillStyle = fillStyle;
-        ctx.textBaseline = 'top';
-
-        // write text
-        ctx.strokeText(text, lineWidth, lineWidth);
-        ctx.fillText(text, lineWidth, lineWidth);
-
-        const texture = new CanvasTexture(ctx.canvas);
+    static createTextSprite(position = new Vector3(), text = 'hi', options = new GUIStylesOptions()) {
+        const canvas = new GUITexture(new GUIText(text), options);
+        const texture = new Texture(canvas);
         texture.minFilter = LinearMipmapLinearFilter;
         texture.magFilter = NearestFilter;
         texture.needsUpdate = true;
 
         const material = new SpriteMaterial({ map: texture });
         const sprite = new Sprite(material);
-        sprite.scale.set(0.01 * width, 0.01 * height, 1);
+        sprite.scale.set(0.01 * canvas.width, 0.01 * canvas.height, 1);
         sprite.position.copy(position);
         return sprite;
     }
@@ -66625,6 +67804,48 @@ class MeshFactory {
         mesh.position.x = position[0];
         mesh.position.y = position[1];
         mesh.position.z = position[2];
+        return mesh;
+    }
+
+    static createCylinder(radiusTop, radiusBottom, height, radialSegments,
+        position, color = 0x00ffff) {
+        var geometry = new CylinderBufferGeometry(
+            radiusTop,
+            radiusBottom,
+            height,
+            radialSegments);
+
+        const material = new MeshToonMaterial({
+            color: color,
+            shininess: 0.2,
+            flatShading: true
+        });
+
+        const mesh = new Mesh(geometry, material);
+        mesh.position.x = position[0];
+        mesh.position.y = position[1];
+        mesh.position.z = position[2];
+        return mesh;
+    }
+
+    static createGUIMesh(position = new Vector3(), texture = null,
+        isWall = false, color = null) {
+        const width = texture != null ? texture.image.width : 100;
+        const height = texture != null ? texture.image.height : 100;
+        const geometry = new PlaneGeometry(0.01 * width, 0.01 * height, 1, 1);
+
+        const material = new MeshBasicMaterial({
+            color: color,
+            map: texture,
+            transparent: true
+        });
+
+        const mesh = new Mesh(geometry, material);
+        mesh.position.copy(position);
+        mesh.rotation.z = -Math.PI;
+
+        if (isWall) mesh.rotation.x = -Math.PI;
+        else mesh.rotation.x = -Math.PI / 2;
         return mesh;
     }
 
@@ -66650,21 +67871,82 @@ class MeshFactory {
         const axes = new AxesHelper(1);
         group.add(axes);
 
-        const tx = MeshFactory.createText(new Vector3(1, 0, 0), 'x');
+        const tx = MeshFactory.createTextSprite(new Vector3(1, 0, 0), 'x');
         group.add(tx);
 
-        const ty = MeshFactory.createText(new Vector3(0, 1, 0), 'y');
+        const ty = MeshFactory.createTextSprite(new Vector3(0, 1, 0), 'y');
         group.add(ty);
-        
-        const tz = MeshFactory.createText(new Vector3(0, 0, 1), 'z');
+
+        const tz = MeshFactory.createTextSprite(new Vector3(0, 0, 1), 'z');
         group.add(tz);
-        
+
         group.position.copy(position);
 
         return group;
     }
-
 }
+
+class Turret {
+    constructor(position = new Vector3()) {
+        // gun
+        const gun = MeshFactory.createCylinder(.2, .2, .8, 4, 
+            [0, .3, 0], 0xffffff);
+        gun.name = 'gun';
+        gun.rotation.x = Math.PI / 2;
+        
+        const marker = MeshFactory.createCylinder(.3, .3, .2, 4, 
+            [0, -.2, 0], 0x88ffff);
+        gun.add(marker);
+
+        const left_arm = MeshFactory.createCylinder(.1, .2, .4, 4, 
+            [0.2, .2, 0], 0xff8888);
+        gun.add(left_arm);
+       
+        const right_arm = MeshFactory.createCylinder(.1, .2, .4, 4, 
+            [-0.2, .2, 0], 0xff8888);
+        gun.add(right_arm);
+
+        this.mesh = new Group();
+        // base
+        const base = MeshFactory.createCylinder(.4, .4, .2, 8, 
+            [0, -.4, 0], 0x88ffff);        
+        this.mesh.add(base);
+
+        const foot = MeshFactory.createCylinder(.2, .3, .6, 8, 
+            [0, 0, 0], 0xffffff);        
+        this.mesh.add(foot);
+
+        // head
+        const head = new Group(); 
+        head.name = 'head';
+        head.add(gun);
+        this.mesh.add(head);
+
+        this.mesh.position.copy(position);
+    }
+
+    idleAnimation(time) {
+        const head = this.mesh.getObjectByName('head');
+        const gun = head.getObjectByName('gun');
+        gun.rotation.y = 0;
+        head.rotation.y = Math.cos(time);
+    }
+
+    attackAnimation(time, target) {
+        const head = this.mesh.getObjectByName('head');
+        const gun = head.getObjectByName('gun');
+        gun.rotation.y = time * 10;
+        head.lookAt(target);
+    }
+}
+
+// https://github.com/schteppe/cannon.js/blob/master/demos/collisionFilter.html
+const COLLISION_GROUP = {
+    PLAYER: 1,
+    NEUTRAL: 2,
+    ENEMY: 4,
+    ALL: 1 | 2 | 4
+};
 
 class EntityFactory {
     constructor(ecsy, spriteSheet) {
@@ -66690,39 +67972,48 @@ class EntityFactory {
         return texture;
     }
 
-    create(type = 1, position = new Vector3()) {
-        if (type == 1) {
+    create(type = '1', position = new Vector3()) {
+        if (type == '1') {
             this.createBlock(position);
         }
-        else if (type == 2) {
+        else if (type == '2') {
             this.createItem(position);
         }
-        else if (type == 3) {
-            this.createHero(position);
+        else if (type == '3') {
+            this.createPlayer(position);
         }
-        if (type == 4) {
+        if (type == '4') {
             this.createCrate(position);
         }
-        if (type == 5) {
+        if (type == '5') {
             this.createBall(position);
         }
-        if (type == 6) {
+        if (type == '6') {
             this.createEnemy(position);
+        }
+        if (type == '7') {
+            this.createSpawnPoint(position);
+        }
+        if (type == '8') {
+            this.createTurret(position);
+        }
+        if (type == '9') {
+            this.createGenerator(position);
         }
     }
 
-    createAxes() {
-        const axesMesh = MeshFactory.createAxes(new Vector3(0, 1, 0));
+    createAxes(position = new Vector3(0, 1, 0)) {
+        const axesMesh = MeshFactory.createAxes(position);
 
         this.ecsy.createEntity()
             .addComponent(ThreeMesh, { value: axesMesh });
     }
 
-    createDemoText() {
+    createDemoText(position = new Vector3(0, 2, 0)) {
         // text
-        const sprite = MeshFactory.createText(
-            new Vector3(0, 2, 0),
-            "READY TO 🍪?!");
+        const sprite = MeshFactory.createTextSprite(
+            position,
+            "READY TO 🚀?!");
 
         this.ecsy.createEntity()
             .addComponent(DeleteAfter, { seconds: 2 })
@@ -66733,7 +68024,7 @@ class EntityFactory {
     createTile(position = new Vector3(), size = new Vector3(1, 1, 1)) {
         const geometry = new PlaneGeometry(size.x, size.y, 1, 1);
 
-        const x = ~~(Math.random() * 2) + 4;
+        const x = ~~(Math.random() * 2) + 6;
         const y = 14;
         const material = new MeshBasicMaterial({
             map: this.createTexture(x, y)
@@ -66751,10 +68042,10 @@ class EntityFactory {
     createBlock(position = new Vector3(), size = new Vector3(1, 1, 1)) {
         const geometry = new BoxGeometry(size.x, size.y, size.z);
         const material0 = new MeshBasicMaterial({
-            map: this.createTexture(3, 10)
+            map: this.createTexture(1, 11)
         });
         const material1 = new MeshBasicMaterial({
-            map: this.createTexture(2, 10)
+            map: this.createTexture(0, 12)
         });
 
         const materials = [];
@@ -66774,10 +68065,17 @@ class EntityFactory {
             type: cannon.Body.STATIC,
             mass: 0,
             position: position,
-            material: new cannon.Material({ restitution: 1 })
+            shape: box,
+            material: new cannon.Material({
+                friction: constants.friction.block,
+                restitution: constants.restitution.block
+            }),
+            // put it in neutral group
+            collisionFilterGroup: COLLISION_GROUP.NEUTRAL,
+            // it can collide with all groups
+            collisionFilterMask: COLLISION_GROUP.ALL
         });
         body.updateMassProperties();
-        body.addShape(box);
 
         this.ecsy.createEntity()
             .addComponent(ThreeMesh, { value: mesh })
@@ -66787,17 +68085,38 @@ class EntityFactory {
 
     createItem(position = new Vector3(), size = new Vector3(1, 1, 1)) {
         const material = new SpriteMaterial({
-            map: this.createTexture(0, 9)
+            map: this.createTexture(6, 8)
         });
         const mesh = new Sprite(material);
         mesh.scale.set(0.8 * size.x, 0.8 * size.y, 1);
         mesh.position.copy(position);
 
+        const box_size = new cannon.Vec3(0.2 * size.x, 0.2 * size.y, 0.2 * size.z);
+        const shape = new cannon.Box(box_size);
+
+        const body = new cannon.Body({
+            mass: 0.1,
+            position: position,
+            shape: shape,
+            fixedRotation: true,
+            material: new cannon.Material({
+                friction: constants.friction.player,
+                restitution: constants.restitution.player
+            }),
+            // put it in neutral group
+            collisionFilterGroup: COLLISION_GROUP.NEUTRAL,
+            // it can collide with player group
+            collisionFilterMask: COLLISION_GROUP.PLAYER | COLLISION_GROUP.NEUTRAL
+        });
+
         this.ecsy.createEntity()
-            .addComponent(ThreeMesh, { value: mesh });
+            .addComponent(ThreeMesh, { value: mesh })
+            .addComponent(CannonBody, { value: body })
+            .addComponent(Inventory, { money: 1 })
+            .addComponent(Pickupable);
     }
 
-    createHero(position = new Vector3(), size = new Vector3(1, 1, 1)) {
+    createPlayer(position = new Vector3(), size = new Vector3(1, 1, 1)) {
         const move_right = [];
         move_right.push(this.createTexture(0, 8));
         move_right.push(this.createTexture(7, 7));
@@ -66812,19 +68131,22 @@ class EntityFactory {
         mesh.scale.set(0.8 * size.x, 0.8 * size.y, size.z);
         mesh.position.copy(position);
 
-        const box_size = new cannon.Vec3(0.4 * size.x, 0.4 * size.y, 0.4 * size.z);
-        const shape = new cannon.Box(box_size);
+        const shape = new cannon.Sphere(0.4 * size.x);
 
         const body = new cannon.Body({
             mass: 1,
             position: position,
+            shape: shape,
             fixedRotation: true,
             material: new cannon.Material({
-                friction: 0.5,
-                restitution: 0.5
-            })
+                friction: constants.friction.player,
+                restitution: constants.restitution.player
+            }),
+            // put it in player group
+            collisionFilterGroup: COLLISION_GROUP.PLAYER,
+            // it can collide with all groups
+            collisionFilterMask: COLLISION_GROUP.ALL
         });
-        body.addShape(shape);
 
         this.ecsy.createEntity()
             .addComponent(ThreeMesh, { value: mesh })
@@ -66836,8 +68158,9 @@ class EntityFactory {
                 move_right,
                 current_animation
             })
-            .addComponent(GoodBoy)
-            .addComponent(ShootBullets);
+            .addComponent(GroupPlayer)
+            .addComponent(Inventory)
+            .addComponent(DistanceWeapon);
     }
 
     createCrate(position = new Vector3(), size = new Vector3(1, 1, 1)) {
@@ -66847,7 +68170,7 @@ class EntityFactory {
             0.8 * size.z
         );
         const material = new MeshToonMaterial({
-            map: this.createTexture(6, 2),
+            map: this.createTexture(6, 1),
             shininess: 0.2
         });
         const mesh = new Mesh(geometry, material);
@@ -66857,10 +68180,14 @@ class EntityFactory {
         const box = new cannon.Box(box_size);
 
         const body = new cannon.Body({
-            mass: 0.01,
-            position: position
+            mass: 1,
+            position: position,
+            shape: box,
+            // put it in neutral group
+            collisionFilterGroup: COLLISION_GROUP.NEUTRAL,
+            // it can collide with all groups
+            collisionFilterMask: COLLISION_GROUP.ALL
         });
-        body.addShape(box);
 
         this.ecsy.createEntity()
             .addComponent(ThreeMesh, { value: mesh })
@@ -66870,7 +68197,7 @@ class EntityFactory {
     createBall(position = new Vector3(), size = new Vector3(1, 1, 1)) {
         const geometry = new IcosahedronGeometry(0.4 * size.x, 1);
         const material = new MeshToonMaterial({
-            map: this.createTexture(0, 11),
+            map: this.createTexture(5, 4),
             shininess: 0.1
         });
         const mesh = new Mesh(geometry, material);
@@ -66878,11 +68205,15 @@ class EntityFactory {
 
         const sphere = new cannon.Sphere(0.4 * size.x);
         const body = new cannon.Body({
-            mass: 1,
+            mass: 0.1,
             position: position,
-            material: new cannon.Material({ restitution: 0.9 })
+            shape: sphere,
+            material: new cannon.Material({ restitution: 0.9 }),
+            // put it in neutral group
+            collisionFilterGroup: COLLISION_GROUP.NEUTRAL,
+            // it can collide with all groups
+            collisionFilterMask: COLLISION_GROUP.ALL
         });
-        body.addShape(sphere);
 
         this.ecsy.createEntity()
             .addComponent(ThreeMesh, { value: mesh })
@@ -66896,13 +68227,62 @@ class EntityFactory {
             shape: new cannon.Box(new cannon.Vec3(.5 * size.x, 1, .5 * size.z)),
             position: position,
             material: new cannon.Material({
-                friction: 0
-            })
+                friction: constants.friction.ground
+            }),
+            // put it in neutral group
+            collisionFilterGroup: COLLISION_GROUP.NEUTRAL,
+            // it can collide with all groups
+            collisionFilterMask: COLLISION_GROUP.ALL
         });
         body.updateMassProperties();
 
         this.ecsy.createEntity()
             .addComponent(CannonBody, { value: body });
+    }
+
+    createSpawnPoint(position = new Vector3(), size = new Vector3(1, 1, 1)) {
+        // TODO if it stays a box => merge code with createBlock
+        const geometry = new BoxGeometry(size.x, size.y, size.z);
+        const material0 = new MeshBasicMaterial({
+            map: this.createTexture(4, 2)
+        });
+        const material1 = new MeshBasicMaterial({
+            map: this.createTexture(6, 1)
+        });
+
+        const materials = [];
+        materials.push(material1); // left
+        materials.push(material1); // right
+        materials.push(material0); // top
+        materials.push(material0); // bottom
+        materials.push(material1); // back
+        materials.push(material1); // front
+        const mesh = new Mesh(geometry, materials);
+        mesh.position.copy(position);
+
+        const box_size = new cannon.Vec3(0.5 * size.x, 0.5 * size.y, 0.5 * size.z);
+        const box = new cannon.Box(box_size);
+
+        const body = new cannon.Body({
+            type: cannon.Body.STATIC,
+            mass: 0,
+            position: position,
+            shape: box,
+            material: new cannon.Material({
+                friction: constants.friction.block,
+                restitution: constants.restitution.block
+            }),
+            // put it in enemy group
+            collisionFilterGroup: COLLISION_GROUP.ENEMY,
+            // it can collide with player or neutral
+            collisionFilterMask: COLLISION_GROUP.PLAYER | COLLISION_GROUP.NEUTRAL
+        });
+        body.updateMassProperties();
+
+        this.ecsy.createEntity()
+            .addComponent(ThreeMesh, { value: mesh })
+            .addComponent(CannonBody, { value: body })
+            .addComponent(SpawnEnemies);
     }
 
     createEnemy(position = new Vector3(), size = new Vector3(1, 1, 1)) {
@@ -66913,53 +68293,155 @@ class EntityFactory {
         mesh.scale.set(0.8 * size.x, 0.8 * size.y, 1);
         mesh.position.copy(position);
 
-        const box_size = new cannon.Vec3(0.4 * size.x, 0.4 * size.y, 0.4 * size.z);
-        const box = new cannon.Box(box_size);
-
+        const sphere = new cannon.Sphere(0.4 * size.x);
         const body = new cannon.Body({
             mass: 1,
             position: position,
+            shape: sphere,
             fixedRotation: true,
             material: new cannon.Material({
-                friction: 0,
+                friction: 0.5,
                 restitution: 0.9
-            })
-        });
-        body.addShape(box);
+            }),
+            // put it in collisionGroup
+            collisionFilterGroup: COLLISION_GROUP.ENEMY,
+            // it can collide with all groups
+            collisionFilterMask: COLLISION_GROUP.ALL
 
+        });
+
+        const loot = (position) => this.createItem(position);
         this.ecsy.createEntity()
             .addComponent(ThreeMesh, { value: mesh })
             .addComponent(CannonBody, { value: body })
-            .addComponent(BadBoy)
-            .addComponent(Damageable);
+            .addComponent(DroppableOnDeath, { item: loot })
+            .addComponent(GroupEnemy)
+            .addComponent(Damageable)
+            .addComponent(PathFinding);
     }
 
-    createBullet(position = new Vector3(), impulse = new Vector3(), size = new Vector3(1, 1, 1)) {
+    createBullet(position = new Vector3(), impulse = new Vector3(),
+        collisionGroup = COLLISION_GROUP.PLAYER,
+        collisionMask = COLLISION_GROUP.NEUTRAL | COLLISION_GROUP.ENEMY,
+        size = new Vector3(1, 1, 1)) {
         const material = new SpriteMaterial({
             map: this.createTexture(4, 3)
         });
         const mesh = new Sprite(material);
+        mesh.scale.set(0.8 * size.x, 0.8 * size.y, 1);
         mesh.position.copy(position);
 
         const shape = new cannon.Sphere(0.1 * size.x);
         const body = new cannon.Body({
             mass: 0.1,
             position: position,
-            fixedRotation: true
+            shape: shape,
+            fixedRotation: true,
+            // put the bullet in collisionGroup (default: player group)
+            collisionFilterGroup: collisionGroup,
+            // it can only collide with groups in collisionMask
+            // default: enemy or neutral group
+            collisionFilterMask: collisionMask
         });
-        body.addShape(shape);
-        // TODO add it in physicssystem + component
-        // TODO : damages !
-        // body.addEventListener('collide', (e) => this.collide(e))
 
         this.ecsy.createEntity()
             .addComponent(DeleteAfter, { seconds: 1 })
             .addComponent(ThreeMesh, { value: mesh })
             .addComponent(CannonBody, { value: body })
+            .addComponent(Collider)
             .addComponent(ApplyImpulse, {
-                impulse: impulse, 
+                impulse: impulse,
                 point: body.position
             });
+    }
+
+    createTurret(position = new Vector3(), size = new Vector3(1, 1, 1)) {
+        const turret = new Turret(position);
+        const box_size = new cannon.Vec3(0.5 * size.x, 0.5 * size.y, 0.5 * size.z);
+        const box = new cannon.Box(box_size);
+
+        const body = new cannon.Body({
+            type: cannon.Body.STATIC,
+            mass: 0,
+            position: position,
+            shape: box,
+            material: new cannon.Material({
+                friction: constants.friction.block,
+                restitution: constants.restitution.block
+            }),
+            // put the bullet in collisionGroup
+            collisionFilterGroup: COLLISION_GROUP.PLAYER,
+            // it can collide with all groups
+            collisionFilterMask: COLLISION_GROUP.ALL
+        });
+        body.updateMassProperties();
+
+        const idle = (time) => turret.idleAnimation(time);
+        const attack = (time, target) => turret.attackAnimation(time, target);
+        const current_animation = idle;
+
+        this.ecsy.createEntity()
+            .addComponent(ThreeMesh, { value: turret.mesh })
+            .addComponent(CannonBody, { value: body })
+            .addComponent(GroupPlayer)
+            .addComponent(DistanceWeapon)
+            .addComponent(MeshAnimation, {
+                idle,
+                attack,
+                current_animation
+            })
+            .addComponent(GUI, {
+                map: new Map([
+                    ['description', new GUIText('I like µchips!')],
+                    ['kpi', new GUICircularProgress(0.75)]
+                ])
+            })
+            .addComponent(Selectionable);
+    }
+
+    createGenerator(position = new Vector3(), size = new Vector3(1, 1, 1)) {
+        // TODO if it stays a box => merge code with createBlock
+        var geometry = new CylinderGeometry(
+            size.x * .3,
+            size.x * .5,
+            size.y,
+            8);
+
+        const material = new MeshToonMaterial({
+            map: this.createTexture(7, 10)
+        });
+        const mesh = new Mesh(geometry, material);
+        mesh.position.copy(position);
+
+        const box_size = new cannon.Vec3(0.5 * size.x, 0.5 * size.y, 0.5 * size.z);
+        const box = new cannon.Box(box_size);
+
+        const body = new cannon.Body({
+            type: cannon.Body.STATIC,
+            mass: 0,
+            position: position,
+            shape: box,
+            material: new cannon.Material({
+                friction: constants.friction.block,
+                restitution: constants.restitution.block
+            }),
+            // put it in player group
+            collisionFilterGroup: COLLISION_GROUP.PLAYER,
+            // it can collide with all
+            collisionFilterMask: COLLISION_GROUP.ALL
+        });
+        body.updateMassProperties();
+
+        this.ecsy.createEntity()
+            .addComponent(ThreeMesh, { value: mesh })
+            .addComponent(CannonBody, { value: body })
+            .addComponent(GUI, {
+                map: new Map([
+                    ['description', new GUIText('Hi! I generator!')],
+                    ['infos', new GUIText('Protect me!')],
+                ])
+            })
+            .addComponent(Selectionable);
     }
 }
 
@@ -66968,15 +68450,18 @@ class CameraSystem extends System {
         super(world, attributes);
         this.camera = attributes.camera;
         this.control = attributes.control;
+        this.pos_target = new Vector3();
     }
 
     execute() {
         // to_follow 
         this.queries.to_follow.results.forEach(e => {
             const mesh = e.getComponent(ThreeMesh).value;
-            this.camera.position.x = mesh.position.x;
-            this.camera.position.y = mesh.position.y + 8;
-            this.camera.position.z = mesh.position.z - 8;
+            this.pos_target.copy(mesh.position);
+            this.pos_target.y += 8;
+            this.pos_target.z -= 8;
+            this.camera.position.lerp(this.pos_target, 0.1);
+            this.control.target.x = mesh.position.x;
             this.control.target.z = mesh.position.z + 8;
         });
     }
@@ -66995,48 +68480,49 @@ class SpriteAnimationSystem extends System {
     }
 
     init() {
-        console.log('init from SpriteAnimationSytem');
     }
 
     execute(delta) {
         this.queries.animations.results.forEach(e => {
             const mesh = e.getComponent(ThreeMesh).value;
             const body = e.getComponent(CannonBody).value;
-            let animation = e.getMutableComponent(SpriteAnimation);
+            let sprite_anim = e.getMutableComponent(SpriteAnimation);
             // update time
-            animation.time += delta;
+            sprite_anim.time += delta;
 
-            if (body && body.velocity.x < -0.01) {
-                this.setAnimation(mesh, animation, animation.move_right);
+            if (body && body.velocity.x < -0.2) {
+                mesh.material.rotation = 0.1;
+                this.setAnimation(mesh, sprite_anim, sprite_anim.move_right);
             }
-            if (body && body.velocity.x > 0.01) {
-                this.setAnimation(mesh, animation, animation.move_left);
+            if (body && body.velocity.x > 0.2) {
+                mesh.material.rotation = -0.1;
+                this.setAnimation(mesh, sprite_anim, sprite_anim.move_left);
             }
 
-            // TODO animation time, animation_name
-            if (animation.time > 1) {
-                this.nextFrame(animation);
-                this.setFrame(mesh, animation);
+            // FEAT animation time, animation_name
+            if (sprite_anim.time > 1) {
+                this.nextFrame(sprite_anim);
+                this.setFrame(mesh, sprite_anim);
             }
         });
     }
 
 
-    setAnimation(mesh, animation, animation_name) {
-        if (animation.current_animation == animation_name) return;
-        animation.current_animation = animation_name;
-        this.setFrame(mesh, animation);
+    setAnimation(mesh, sprite_anim, new_animation) {
+        if (sprite_anim.current_animation == new_animation) return;
+        sprite_anim.current_animation = new_animation;
+        this.setFrame(mesh, sprite_anim);
     }
 
-    nextFrame(animation) {
-        animation.frame += 1;
-        animation.time = 0;
-        if (animation.frame > 1)
-            animation.frame = 0;
+    nextFrame(sprite_anim) {
+        sprite_anim.frame += 1;
+        sprite_anim.time = 0;
+        if (sprite_anim.frame > 1)
+            sprite_anim.frame = 0;
     }
 
-    setFrame(mesh, animation) {
-        mesh.material.map = animation.current_animation[animation.frame];
+    setFrame(mesh, sprite_anim) {
+        mesh.material.map = sprite_anim.current_animation[sprite_anim.frame];
         mesh.material.map.needsUpdate = true;
         mesh.material.needsUpdate = true;
     }
@@ -67056,48 +68542,616 @@ class WeaponSystem extends System {
     init() { }
 
     execute(delta) {
-        // bad_boys
-        const bad_boys = this.queries.bad_boys.results;
+        // enemies
+        const enemies = this.queries.enemies.results;
 
-        // good boy bullets
-        this.queries.good_boy_bullets.results.forEach(e => {
-            const mesh = e.getComponent(ThreeMesh).value;
-            const shootBullets = e.getMutableComponent(ShootBullets);
-            
+        // distance weapons
+        this.queries.distance_weapons.results.forEach(e => {
+            const weapon = e.getMutableComponent(DistanceWeapon);
+
             // update time
-            shootBullets.time += delta;
+            weapon.time += delta;
+            weapon.time_to_next_target += delta;
 
-            // spawn a bullet
-            if (shootBullets.time >= shootBullets.delay) {
-                shootBullets.time = 0;
+            // it's time to spawn a bullet
+            if (weapon.time >= weapon.delay) {
+                weapon.time = 0;
 
-                // TODO check + find the closest + clone mandatory ?
-                const pos = mesh.position.clone();
-                const enemy_mesh = bad_boys[0].getComponent(ThreeMesh).value;
-                const enemy_pos = enemy_mesh.position.clone();
+                // if no enemies, returns 
+                if (enemies.length < 1) return;
+
+                // permit to compute distances to current entity 
+                const p0 = e.getComponent(CannonBody).value.position;
+
+                // sort enemies in order to find the closest
+                if (weapon.target == null ||
+                    weapon.target.hasComponent(CannonBody) == false ||
+                    weapon.time_to_next_target >= weapon.delay_to_next_target) {
+                    weapon.time_to_next_target = 0;
+                    this.sortByDistance(enemies, p0);
+                    // closest enemy position
+                    weapon.target = enemies[0];
+                }
+                const p1 = weapon.target.getComponent(CannonBody).value.position;
+
 
                 // impulse
-                const impulse = enemy_pos.sub(pos).setLength(5);
-   
-                // offset
-                const offset = impulse.clone().setLength(0.5);
+                // TODO customise using component: impulse speed, y, relative to distance
+                const impulse = p1.vsub(p0);
+                // .setLength(shootBullets.impulse_speed);
+                // TODO y += shootBullets.impulse_y
+                // .setY(shootBullets.impulse_y)
 
-                const bullet_pos = new Vector3(pos.x + offset.x, 1, pos.z + offset.z);
-                this.world.factory.createBullet(bullet_pos, impulse);
+                // set animation + target
+                this.world.game_factory.createBullet(p0, impulse);
+                const mesh_anim = e.getComponent(MeshAnimation);
+                if (mesh_anim) {
+                    mesh_anim.current_animation = mesh_anim.attack;
+                    mesh_anim.current_animation_duration = 0.5;
+                    mesh_anim.time = 0;
+                    mesh_anim.target = new Vector3(p1.x, 1, p1.z);
+                }
             }
+
+            // update gui test
+            const gui = e.getMutableComponent(GUI);
+            if(gui == null) return;
+            const circularProgress = gui.map.get('kpi');
+            if(circularProgress)
+                circularProgress.progress = weapon.time_to_next_target / weapon.delay_to_next_target;
+        });
+    }
+
+    // FEAT : in sight
+    sortByDistance(entity_list, p0) {
+        let p1 = null, p2 = null, d1 = 0, d2 = 0;
+        entity_list.sort((e1, e2) => {
+            p1 = e1.getComponent(CannonBody).value.position;
+            p2 = e2.getComponent(CannonBody).value.position;
+            d1 = p1.distanceTo(p0);
+            d2 = p2.distanceTo(p0);
+            return d1 > d2 ? 1 : -1;
+        });
+    }
+}
+
+WeaponSystem.queries = {
+    enemies: {
+        components: [GroupEnemy, CannonBody]
+    },
+    distance_weapons: {
+        components: [DistanceWeapon, GroupPlayer, CannonBody]
+    }
+};
+
+class WavesControllerSystem extends System {
+    constructor(world, attributes) {
+        super(world, attributes);
+        this.enable_spawn = true;
+    }
+
+    init() {
+    }
+
+    execute(delta) {
+        const n_enemies = this.queries.enemies.results.length;
+        if (n_enemies > 50) this.enable_spawn = false;
+        else if (n_enemies == 0) this.enable_spawn = true;
+
+        // spawn enemies
+        if (this.enable_spawn) {
+            this.queries.spawners.results.forEach(e => {
+
+                const c = e.getMutableComponent(SpawnEnemies);
+
+                // update time
+                c.time += delta;
+                c.total_time += delta;
+
+                // cooldown
+                if(c.emitting 
+                    && c.total_time >= c.duration) {
+                    c.total_time = 0;
+                    c.emitting = false;
+                } else if(c.emitting == false 
+                    && c.total_time >= c.cooldown) {
+                    c.total_time = 0;
+                    c.emitting = true;
+                } 
+
+                // it's emitting and time to spawn a bullet
+                if (c.emitting && c.time >= c.delay) {
+                    c.time = 0;
+                    const position = e.getComponent(ThreeMesh).value.position;
+                    position.z -= 0.8;
+                    position.x += Math.random() * .4 - .2;
+                    this.world.game_factory.createEnemy(position);
+                }
+            });
+        }
+    }
+}
+
+WavesControllerSystem.queries = {
+    spawners: {
+        components: [SpawnEnemies, ThreeMesh]
+    },
+    enemies: {
+        components: [GroupEnemy, ThreeMesh]
+    }
+};
+
+class MeshAnimationSystem extends System {
+    constructor(world, attributes) {
+        super(world, attributes);
+    }
+
+    init() {
+    }
+
+    execute(delta) {
+
+          this.queries.animations.results.forEach(e => {
+            let mesh_anim = e.getMutableComponent(MeshAnimation);
+            // update time
+            mesh_anim.time += delta;
+
+            // TODO : cleanup?
+            if (mesh_anim.current_animation_duration > 0 &&
+                mesh_anim.time > mesh_anim.current_animation_duration)
+                this.setAnimationToIdle(mesh_anim);
+
+            mesh_anim.current_animation(mesh_anim.time, mesh_anim.target);
+        });
+    }
+
+    setAnimationToIdle(mesh_anim) {
+        mesh_anim.current_animation = mesh_anim.idle;
+        mesh_anim.current_animation_duration = 0;
+        mesh_anim.target = null;
+        mesh_anim.time = 0;
+    }
+}
+
+MeshAnimationSystem.queries = {
+    animations: {
+        components: [MeshAnimation, ThreeMesh]
+    }
+};
+
+class DropSystem extends System {
+    constructor(world, attributes) {
+        super(world, attributes);
+        this.radius = .8;
+        this.effect = 3;
+    }
+
+    init() { }
+
+    execute() {
+        // dropOnDeath 
+        this.queries.dropOnDeath.removed.forEach(e => {
+            const loot = e.getRemovedComponent(DroppableOnDeath).item;
+            // get the position
+            const position = e.getRemovedComponent(CannonBody).value.position;
+            loot(position);
+        });
+
+        // players
+        this.queries.players.results.forEach(player => {
+            const p0 = player.getComponent(CannonBody).value.position;
+
+            // pickupables
+            this.queries.pickupables.results.forEach(e => {
+                const p1 = e.getComponent(CannonBody).value.position;
+                const d = p0.vsub(p1);
+                const mag = d.length();
+                d.normalize();
+                if (mag < this.radius * this.effect && mag > this.radius) {
+                    e.addComponent(ApplyImpulse, { 
+                        impulse: d.scale(0.05), 
+                        point: p1 });
+                }
+                else if(mag < this.radius) {
+                    const {money} = e.getComponent(Inventory);
+                    const inventory = player.getMutableComponent(Inventory);
+                    inventory.money += money;
+                    console.log(`player has now ${inventory.money}$`);
+                    e.addComponent(DeleteAfter);
+                }
+            });
+        });
+
+    }
+
+}
+
+DropSystem.queries = {
+    dropOnDeath: {
+        components: [DroppableOnDeath, CannonBody],
+        listen: {
+            removed: true
+        }
+    },
+
+    players: {
+        components: [Controllable, CannonBody]
+    },
+
+    pickupables: {
+        components: [Pickupable, CannonBody]
+    }
+};
+
+class GUISystem extends System {
+    constructor(world, attributes) {
+        super(world, attributes);
+        this.selectionRadius = 2;
+    }
+
+    init() { }
+
+    execute(delta) {
+        // selectionable added
+        this.queries.selectionable.added.forEach(e => {
+            // get the mesh
+            const mesh = e.getComponent(ThreeMesh).value;
+
+            // add texture to mesh
+            this.createSelection(mesh);
+        });
+
+        // players
+        this.queries.players.results.forEach(player => {
+            const p0 = player.getComponent(CannonBody).value.position;
+
+            // selectionable
+            this.queries.selectionable.results.forEach(e => {
+                // selectionable position
+                const p1 = e.getComponent(CannonBody).value.position;
+                if (Math.abs(p1.x - p0.x) > this.selectionRadius + 1) return;
+                if (Math.abs(p1.z - p0.z) > this.selectionRadius + 1) return;
+
+                // get the mesh, selection, etc
+                const mesh = e.getComponent(ThreeMesh).value;
+                const sel = e.getMutableComponent(Selectionable);
+                const gui = e.getMutableComponent(GUI);
+
+                const d = p0.vsub(p1);
+                const mag = d.length();
+
+                if (mag > this.selectionRadius) {
+                    sel.timer = 0;
+                    sel.active = false;
+                    this.updateSelection(mesh, 0);
+                    if (gui && gui.active == true) 
+                        gui.active = false;
+                }
+
+                // update selection mark
+                else {
+                    // get the GUI infos
+                    sel.timer += delta;
+                    sel.timer = Math.min(1, sel.timer);
+                    this.updateSelection(mesh, sel.timer);
+                }
+
+                // selection + activation
+                if (sel.timer >= 1 && sel.active == false) {
+                    sel.active = true;
+                    // gui activation
+                    if (gui && gui.active == false) 
+                        gui.active = true;
+                }
+            });
+        });
+
+        // gui added
+        this.queries.gui.added.forEach(e => {
+            // get the GUI infos
+            const gui = e.getComponent(GUI);
+            // get the mesh
+            const mesh = e.getComponent(ThreeMesh).value;
+
+            // add texture to mesh
+            this.createGUI(gui, mesh);
+        });
+
+        // gui changed 
+        this.queries.gui.changed.forEach(e => {
+            const gui = e.getComponent(GUI);
+            // get the mesh
+            const mesh = e.getComponent(ThreeMesh).value;
+            // update texture if needed
+            this.updateGUI(gui, mesh);
+        });
+    }
+
+
+    updateGUI(gui, mesh) {
+        // get th GUI infos
+        const { map, active } = gui;
+
+        const sprite = mesh.getObjectByName('gui');
+        if (sprite != null) {
+            if (active) {
+                sprite.visible = true;
+                sprite.material.map = MeshFactory.createGUITexture(map);
+            } else {
+                sprite.visible = false;
+            }
+        }
+    }
+
+    createGUI(gui, mesh) {
+        const { map } = gui;
+
+        const sprite = MeshFactory.createGUIMesh(
+            new Vector3(0, 1, 0),
+            MeshFactory.createGUITexture(map),
+            true);
+        sprite.name = 'gui';
+        sprite.visible = false;
+        mesh.add(sprite);
+    }
+
+    updateSelection(mesh, timer) {
+        const sprite = mesh.getObjectByName('selection');
+        if (sprite != null) {
+            if (timer > 0) {
+                sprite.visible = true;
+                sprite.material.map = MeshFactory.createSelectionTexture(timer);
+            } else {
+                sprite.visible = false;
+            }
+        }
+    }
+
+    createSelection(mesh) {
+        const sel = MeshFactory.createGUIMesh(
+            new Vector3(0, -0.4, 0),
+            MeshFactory.createSelectionTexture(.0)
+        );
+        sel.name = 'selection';
+        sel.visible = false;
+        mesh.add(sel);
+    }
+}
+
+GUISystem.queries = {
+    players: {
+        components: [Controllable, CannonBody]
+    },
+    selectionable: {
+        components: [Selectionable, CannonBody, ThreeMesh],
+        listen: {
+            added: [CannonBody]
+        }
+    },
+    gui: {
+        components: [GUI, ThreeMesh],
+        listen: {
+            added: [ThreeMesh],
+            changed: [GUI]
+        }
+    }
+};
+
+class GridGraph {
+
+    constructor(grid_data, rows, cols) {
+        this.nodes = new Map();
+        this.edges = new Map();
+        this.rows = rows;
+        this.cols = cols;
+        this.dirs = [[1, 0], [0, 1], [-1, 0], [0, -1]];
+
+        // nodes
+        for (let y = 0; y < rows; y++) {
+            for (let x = 0; x < cols; x++) {
+                const w = grid_data[y][x];
+                const key = this.get_key(x, y);
+                this.nodes.set(key, [x, y, w]);
+            }
+        }
+
+        // edges
+        for (let y = 0; y < rows; y++) {
+            for (let x = 0; x < cols; x++) {
+                const key = this.get_key(x, y);
+                const node = this.nodes.get(key);
+                const node_neighbors = this.compute_neighbors(node); 
+                this.edges.set(key, node_neighbors);
+            }
+        }
+    }
+
+    get_key(x, y) {return y * this.cols + x;}
+    is_valid(x, y) {return 0 <= x && x < this.cols && 0 <= y && y < this.rows;}
+
+    compute_neighbors(node) {
+        const edges = [];
+        for (let dir of this.dirs) {
+            const x = node[0] + dir[0];
+            const y = node[1] + dir[1];
+            if(this.is_valid(x, y) == false) continue;
+            const neighbor_key = this.get_key(x, y);
+            const neighbor = this.nodes.get(neighbor_key);
+            if(neighbor && neighbor[2] == 0)
+                edges.push(neighbor);
+        }
+        return edges;
+    }
+
+    query_neighbors(node) {
+        const neighbor_key = this.get_key(node[0], node[1]);
+        return this.edges.get(neighbor_key);
+    }
+
+    query_node(x, y) {
+        const key = this.get_key(x, y);
+        return this.nodes.get(key);
+    }
+}
+
+class BFS {
+    // FEAT list of start nodes
+    // https://www.redblobgames.com/pathfinding/distance-to-any/
+    constructor(graph, start_node) {
+        let curr_key = graph.get_key(start_node[0], start_node[1]);
+        let next_key = "";
+        let curr_dist = 0;
+        let next_dist = 0;
+        let current = [];
+        let next = [];
+        let neighbors = [];
+
+        this.graph = graph;
+        // a list of nodes
+        this.frontier = [];
+        this.frontier.push(start_node);
+
+        // a map of [key, node]  
+        this.came_from = new Map();
+        this.came_from.set(curr_key, null);
+
+        this.distance = new Map();
+        this.distance.set(curr_key, 0);
+
+
+        while(this.frontier.length > 0) {
+            current = this.frontier.pop(); //shift();
+            curr_key = graph.get_key(current[0], current[1]);
+            curr_dist = this.distance.get(curr_key);
+            neighbors = graph.query_neighbors(current);
+
+            for(next of neighbors) {
+                next_key = graph.get_key(next[0], next[1]);
+                next_dist = this.distance.get(next_key);
+                if(next_dist == null || 1 + curr_dist < next_dist ) {
+                    this.frontier.push(next);
+                    this.came_from.set(next_key, current);
+                    this.distance.set(next_key, 1 + curr_dist);
+                }
+            }
+        }
+    }
+}
+
+class MapLevel {
+    constructor(data, blockers = []) {
+        this.rows = data.length;
+        this.cols = data[0].length;
+        this.grid_data = [];
+        this.start_node = null;
+
+        for (let y = 0; y < this.rows; y++) {
+            const row = [];
+            for (let x = 0; x < this.cols; x++) {
+                const tile_id = data[y][x];
+                const w = blockers.includes(tile_id) ? 1: 0;
+                row.push(w);
+
+                // add start nodes
+                if(tile_id == '9')
+                    this.start_node = [x, y, w];
+            }
+            this.grid_data.push(row);
+        }
+
+        this.graph = new GridGraph(this.grid_data, this.rows, this.cols);
+        this.bfs = new BFS(this.graph, this.start_node);
+    }
+
+    query_direction(x, y) {
+        // FEAT : bilineare filtering : https://howtorts.github.io/2014/01/04/basic-flow-fields.html
+        const node_key = this.graph.get_key(x, y);
+        const node = this.bfs.came_from.get(node_key);
+        if(node == null) return [0, 0];
+        let dx = node[0] - x;
+        let dy = node[1] - y; 
+        return [dx, dy];
+    }
+
+    debug() {
+        for (let y = 0; y < this.rows; y++) {
+            const row = [];
+            for (let x = 0; x < this.cols; x++) {
+                const node_key = this.graph.get_key(x, y);
+                let dist = this.bfs.distance.get(node_key);
+                if(dist == null) dist = '##';
+                else if(dist< 10) dist = '0'+ dist;
+                else dist = '' + dist;
+                row.push(dist);
+            }
+            console.log(row);
+        }
+
+        for (let y = 0; y < this.rows; y++) {
+            const row = [];
+            for (let x = 0; x < this.cols; x++) {
+                const node_key = this.graph.get_key(x, y);
+                const from_node = this.bfs.came_from.get(node_key);
+                let dir = from_node == null ? ' ' :
+                     this.get_debug_dir([x, y], from_node);
+                row.push(dir);
+            }
+            console.log(row);
+        }
+    }
+
+    get_debug_dir(node1, node2) {
+        let ew = '';
+        let dx = node2[0] - node1[0]; 
+        if(dx < 0) ew = '←';
+        else if(dx > 0) ew = '→';
+        
+        let ns = '';
+        let dy = node2[1] - node1[1]; 
+
+        if(dy < 0) ns = '↑';
+        else if(dy > 0) ns = '↓';
+        return ns+ew;
+    }
+
+}
+
+class EnemyPathFindingSystem extends System {
+    constructor(world, attributes) {
+        super(world, attributes);
+        this.map_level = attributes.map_level;
+    }
+
+    init() {}
+
+    execute(delta) {
+        this.queries.entities.results.forEach(e => {
+            const body = e.getComponent(CannonBody).value;
+            const pos = body.position;
+            const x = Math.round(-pos.x);
+            const y = Math.round(-pos.z);
+            const d = this.map_level.query_direction(x, y);
+            const dir = new cannon.Vec3(-d[0], 0, -d[1]);
+            dir.normalize();
+            body.applyImpulse(dir.mult(0.4), pos);
         });
     }
 
 }
 
-WeaponSystem.queries = {
-    bad_boys: {
-        components: [BadBoy]
-    },
-    good_boy_bullets: {
-        components: [ShootBullets, GoodBoy]
+EnemyPathFindingSystem.queries = {
+    entities: {
+        components: [PathFinding, CannonBody]
     }
 };
+
+// main inspiration: https://twitter.com/metkis/status/1024058489860186112
+// TODO 4: MeshFactory
+// TODO 5: tower hud animations (creation + rotation) 
+// TODO 6: screenshake, trail, explosions, impacts, "bang" on shot, particles 
+// TODO 7: turret creation/upgrade/repare mechanics
+// TODO 8: scene transitions
+// TODO 9: entity pooling
 
 class App {
     constructor() {
@@ -67108,47 +69162,58 @@ class App {
         this.world.gravity.set(0, -10, 0);
         this.debugRenderer = new CannonDebugRenderer(this.ts.scene, this.world);
         this.controller = new TouchController();
+        // GPU bench
+        this.bench = new GLBench(this.ts.renderer, { trackGPU: true });
 
         this.ecsy = new World()
             .registerSystem(TimerSystem)
             .registerSystem(SpriteAnimationSystem)
+            .registerSystem(MeshAnimationSystem)
             .registerSystem(WeaponSystem)
+            .registerSystem(WavesControllerSystem)
+            .registerSystem(DropSystem)
+            .registerSystem(GUISystem)
             .registerSystem(CameraSystem, { camera: this.ts.camera, control: this.ts.control })
             .registerSystem(PhysicSystem, { cannon_world: this.world, controller: this.controller })
             .registerSystem(SceneSystem, { scene: this.ts.scene });
 
         this.spriteSheet = new SpriteSheet('resources/textures/raw_tileset01.png', 8, 15, 8, 8);
-        this.ecsy.factory = new EntityFactory(this.ecsy, this.spriteSheet);
+        this.ecsy.game_factory = new EntityFactory(this.ecsy, this.spriteSheet);
 
         window.addEventListener('resize', () => this.resize(), false);
         this.resize();
-
-        // axes
-        this.ecsy.factory.createAxes();
-
-        // text
-        this.ecsy.factory.createDemoText();
     }
 
     async start() {
         await this.spriteSheet.load();
 
+        // TODO map_level MapLevel object
         const data = constants.level.data;
         const rows = data.length;
         const cols = data[0].length;
+        const map_level = new MapLevel(data, ['1', '8']);
+        this.ecsy.registerSystem(EnemyPathFindingSystem, { map_level });
 
-        const x_offset = ~~(cols / 2);
-        const z_offset = ~~(rows / 2);
+        // TODO update map level when add turret
+        const halfW = ~~(-cols / 2);
+        const halfH = ~~(-rows / 2);
+
+        // axes
+        this.ecsy.game_factory.createAxes(new Vector3(halfW, 1, halfH));
+        // text
+        this.ecsy.game_factory.createDemoText(new Vector3(halfW, 2, halfH));
+
         for (let l = 0; l < rows; l++) {
             for (let r = 0; r < cols; r++) {
                 const type = data[l][r];
-                const position = new Vector3(-r + x_offset, 1, -l + z_offset);
-                // this.ecsy.factory.createTile(position);
-                this.ecsy.factory.create(type, position);
+                const position = new Vector3(-r, 1, -l);
+                // TODO new tile sprite + new spritesheet
+                this.ecsy.game_factory.createTile(position);
+                this.ecsy.game_factory.create(type, position);
             }
         }
-        this.ecsy.factory.createGround(
-            new Vector3(0, -.5, 0.5),
+        this.ecsy.game_factory.createGround(
+            new Vector3(halfW, -.5, halfH),
             new Vector3(cols, 1, rows)
         );
 
@@ -67159,47 +69224,28 @@ class App {
         let delta = (time - this.lastTime) * 0.001;
         delta = Math.min(delta, 0.1);
         this.lastTime = time;
-       
+
+        // update ecs
+        this.bench.begin();
         this.ecsy.execute(delta, time);
 
-        // TODO enemy update
-        // this.enemy.time += delta;
+        // render
+        this.render(delta);
+        this.bench.end();
 
-        // if (this.enemy.time > 0.1) {
-        //     this.enemy.time = 0;
-        //     // fire
-        //     // TODO position, velocity
-        //     // add to physics
-        //     // add to render
-        //     // edit collision
-        //     // TODO pas sur pour le new ou le create 
-        //          p-e cloner une instance
-        //     // TODO spriteSheet
-        //     const size = new Vector3(1, 1, 1);
-        //     const enemy_pos = this.enemy.mesh.position.clone();
-        //     const direction = this.hero.mesh.position.clone().sub(enemy_pos);
-        //     const length = direction.length()
-        //     direction.normalize();
-        //     direction.setLength(length * 0.1);
-        //     direction.y = 0.5;
+        this.bench.nextFrame(time);
+        requestAnimationFrame((t) => this.update(t));
+    }
 
-        //     const position = new Vector3(enemy_pos.x + direction.x,
-        //         1,
-        //         enemy_pos.z + direction.z);
-        //     this.factory.createBullet(position, size, direction);
-        // }
-
-        // TODO render
+    render(delta) {
         // this.debugRenderer.update();
         this.ts.render(delta);
-        this.controller.display();
-        requestAnimationFrame((t) => this.update(t));
+        if (this.controller) this.controller.display();
     }
 
     resize() {
         this.ts.resize();
     }
-
 }
 
 window.addEventListener('DOMContentLoaded', () => new App().start());

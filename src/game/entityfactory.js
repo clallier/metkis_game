@@ -91,7 +91,7 @@ export default class EntityFactory {
         // text
         const sprite = MeshFactory.createTextSprite(
             position,
-            "READY TO 🍪?!")
+            "READY TO 🚀?!")
 
         this.ecsy.createEntity()
             .addComponent(DeleteAfter, { seconds: 2 })
@@ -125,7 +125,7 @@ export default class EntityFactory {
         const material1 = new MeshBasicMaterial({
             map: this.createTexture(0, 12)
         })
-    
+
         const materials = [];
         materials.push(material1); // left
         materials.push(material1); // right
@@ -258,7 +258,7 @@ export default class EntityFactory {
         const box = new CANNON.Box(box_size);
 
         const body = new CANNON.Body({
-            mass: 0.01,
+            mass: 1,
             position: position,
             shape: box,
             // put it in neutral group
@@ -275,7 +275,7 @@ export default class EntityFactory {
     createBall(position = new Vector3(), size = new Vector3(1, 1, 1)) {
         const geometry = new IcosahedronGeometry(0.4 * size.x, 1);
         const material = new MeshToonMaterial({
-            map: this.createTexture(0, 11),
+            map: this.createTexture(5, 4),
             shininess: 0.1
         });
         const mesh = new Mesh(geometry, material);

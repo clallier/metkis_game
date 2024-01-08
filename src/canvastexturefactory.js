@@ -33,7 +33,7 @@ export class GUICircularProgress {
 }
 
 export class GUIBorders {
-    constructor(left=false, top=false, right=false, bottom=false) {
+    constructor(left = false, top = false, right = false, bottom = false) {
         this.left = left;
         this.top = top;
         this.right = right;
@@ -46,31 +46,31 @@ export class GUITexture {
     constructor(
         elements = [],
         styles = new GUIStylesOptions()) {
-            elements = [].concat(elements);
-            this.ctx = document.createElement('canvas').getContext('2d');
-            this.width = this.height = 0;
-            this.styles = styles;
-            this.applyStyles();
-            this.computeSize(elements);
-            this.applyStyles();
-            let x = this.styles.lineWidth;
-            let y = this.styles.lineWidth;
-            for (let e of elements) {
-                if (e instanceof GUIText) { 
-                    this.drawText(e.text, x, y);
-                    y += this.styles.fontsize;
-                }
-                else if (e instanceof GUICircularProgress) {
-                    this.drawCircularProgressBar(e.radius, e.progress, x, y);
-                    y += 2 * e.radius;
-                }
-                else if (e instanceof GUIBorders) {
-                    this.drawBorders(e.left, e.top, e.right, e.bottom, 0, 0);
-                }
-                // blank separator
-                y += this.styles.lineWidth;
+        elements = [].concat(elements);
+        this.ctx = document.createElement('canvas').getContext('2d');
+        this.width = this.height = 0;
+        this.styles = styles;
+        this.applyStyles();
+        this.computeSize(elements);
+        this.applyStyles();
+        let x = this.styles.lineWidth;
+        let y = this.styles.lineWidth;
+        for (let e of elements) {
+            if (e instanceof GUIText) {
+                this.drawText(e.text, x, y);
+                y += this.styles.fontsize;
             }
-            return this.ctx.canvas;
+            else if (e instanceof GUICircularProgress) {
+                this.drawCircularProgressBar(e.radius, e.progress, x, y);
+                y += 2 * e.radius;
+            }
+            else if (e instanceof GUIBorders) {
+                this.drawBorders(e.left, e.top, e.right, e.bottom, 0, 0);
+            }
+            // blank separator
+            y += this.styles.lineWidth;
+        }
+        return this.ctx.canvas;
     }
 
     applyStyles() {
@@ -83,7 +83,7 @@ export class GUITexture {
 
     computeSize(elements) {
         for (let e of elements) {
-            if (e instanceof GUIText) { 
+            if (e instanceof GUIText) {
                 const width = Math.ceil(this.ctx.measureText(e.text).width);
                 this.width = Math.max(this.width, width);
                 this.height += this.styles.fontsize;
@@ -92,9 +92,9 @@ export class GUITexture {
                 this.width = Math.max(this.width, 2 * e.radius);
                 this.height += 2 * e.radius;
             }
-            
+
             // space separator
-            this.height += this.styles.lineWidth; 
+            this.height += this.styles.lineWidth;
         }
         // add borders sizes
         this.width += this.styles.doubleBorderSize;
@@ -130,11 +130,11 @@ export class GUITexture {
 
     drawCircularProgressBar(radius, progress, x, y) {
         progress = parseFloat(progress);
-        
+
         // center point
         const cx = x + radius;
         const cy = y + radius;
-        
+
         // angles
         const start = Math.PI / 2;
         const end = start + progress * Math.PI * 2;
@@ -142,7 +142,7 @@ export class GUITexture {
 
         // adapt radius to external border of the ring
         radius -= this.styles.lineWidth;
-        
+
         this.ctx.save();
         this.ctx.moveTo(x, y);
         // background
@@ -165,11 +165,11 @@ export class GUITexture {
 
     drawBorders(left, top, right, bottom) {
         const w = this.width;
-        const h = this.height; 
+        const h = this.height;
         const r = 4
-        if(left)    this.drawLine(0, r, 0, h-r);
-        if(top)     this.drawLine(r, 0, w-r, 0);
-        if(right)   this.drawLine(w, r, w, h-r);
-        if(bottom)  this.drawLine(r, h, w-r, h);   
+        if (left) this.drawLine(0, r, 0, h - r);
+        if (top) this.drawLine(r, 0, w - r, 0);
+        if (right) this.drawLine(w, r, w, h - r);
+        if (bottom) this.drawLine(r, h, w - r, h);
     }
 }

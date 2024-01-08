@@ -71,7 +71,7 @@ export default class App {
         const rows = data.length;
         const cols = data[0].length;
         const map_level = new MapLevel(data, ['1', '8']);
-        this.ecsy.registerSystem(EnemyPathFindingSystem, {map_level});
+        this.ecsy.registerSystem(EnemyPathFindingSystem, { map_level });
 
         // TODO update map level when add turret
         const halfW = ~~(-cols / 2);
@@ -81,7 +81,7 @@ export default class App {
         this.ecsy.game_factory.createAxes(new Vector3(halfW, 1, halfH));
         // text
         this.ecsy.game_factory.createDemoText(new Vector3(halfW, 2, halfH));
-        
+
         for (let l = 0; l < rows; l++) {
             for (let r = 0; r < cols; r++) {
                 const type = data[l][r];
@@ -103,23 +103,23 @@ export default class App {
         let delta = (time - this.lastTime) * 0.001;
         delta = Math.min(delta, 0.1);
         this.lastTime = time;
-        
+
         // update ecs
         this.bench.begin();
         this.ecsy.execute(delta, time);
 
         // render
-        this.render(delta);      
+        this.render(delta);
         this.bench.end();
-        
+
         this.bench.nextFrame(time);
         requestAnimationFrame((t) => this.update(t));
     }
 
     render(delta) {
-        //this.debugRenderer.update();
+        // this.debugRenderer.update();
         this.ts.render(delta);
-        if(this.controller) this.controller.display();
+        if (this.controller) this.controller.display();
     }
 
     resize() {
