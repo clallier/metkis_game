@@ -48,8 +48,9 @@ export default class PhysicSystem extends System {
         this.queries.entities.results.forEach(e => {
             const body = e.getComponent(CannonBody).value;
             if (body.position.y < -40) {
-                console.log("Outsite of the world")
-                e.addComponent(DeleteAfter)
+                // console.log("Outsite of the world", e.id)
+                if (e.hasComponent(DeleteAfter) == false)
+                    e.addComponent(DeleteAfter)
             }
         })
 
@@ -98,7 +99,8 @@ export default class PhysicSystem extends System {
             if (damageable == null) return;
 
             damageable.hp -= 1;
-            if (damageable.hp <= 0) entity.addComponent(DeleteAfter);
+            if (damageable.hp <= 0 && entity.hasComponent(DeleteAfter) == false)
+                entity.addComponent(DeleteAfter);
         })
     }
 }

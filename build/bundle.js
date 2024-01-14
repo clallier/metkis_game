@@ -27,6 +27,24 @@ class MiniConsole {
         window.onerror = (m, s, ln, col, err) => this.errorCatcher(m, s, ln, col, err);
     }
 
+    stringify(obj) {
+        let cache = [];
+        let str = JSON.stringify(obj, function (key, value) {
+            if (typeof value === "object" && value !== null) {
+                if (cache.indexOf(value) !== -1) {
+                    // Circular reference found, discard key
+                    return;
+                }
+                // Store value in our collection
+                cache.push(value);
+            }
+            return value;
+        });
+        cache = null; // reset the cache
+        return str;
+    }
+
+
     consoleCatcher(level, ...items) {
         this.show();
         // Call native method first
@@ -34,7 +52,7 @@ class MiniConsole {
 
         // Use JSON to transform objects, all others display normally
         items.forEach((item, i) => {
-            items[i] = (item != null && typeof item === 'object' ? JSON.stringify(item, null, 2) : item);
+            items[i] = (item != null && typeof item === 'object' ? this.stringify(item, null, 2) : item);
         });
 
         this.output.innerHTML += `${level}${items.join(' ')} <br />`;
@@ -51609,11 +51627,11 @@ var level = {
 		"1  1111  1",
 		"1        1",
 		"1        1",
-		"114    411",
+		"144    441",
 		"1        1",
 		"1  4444  1",
-		"1  1111  1",
-		"1  5555  1",
+		"1        1",
+		"1        1",
 		"1        1",
 		"1        1",
 		"1        1",
@@ -67323,7 +67341,7 @@ class SpawnEnemies extends Component {
 
     reset() {
         this.time = 0;
-        this.delay = 5;
+        this.delay = 0.5;
         this.emitting = true;
         this.total_time = 0;
         this.duration = 10;
@@ -67468,8 +67486,9 @@ class PhysicSystem extends System {
         this.queries.entities.results.forEach(e => {
             const body = e.getComponent(CannonBody).value;
             if (body.position.y < -40) {
-                console.log("Outsite of the world");
-                e.addComponent(DeleteAfter);
+                // console.log("Outsite of the world", e.id)
+                if (e.hasComponent(DeleteAfter) == false)
+                    e.addComponent(DeleteAfter);
             }
         });
 
@@ -67518,7 +67537,8 @@ class PhysicSystem extends System {
             if (damageable == null) return;
 
             damageable.hp -= 1;
-            if (damageable.hp <= 0) entity.addComponent(DeleteAfter);
+            if (damageable.hp <= 0 && entity.hasComponent(DeleteAfter) == false)
+                entity.addComponent(DeleteAfter);
         });
     }
 }
@@ -67607,7 +67627,7 @@ class GUICircularProgress {
 }
 
 class GUIBorders {
-    constructor(left=false, top=false, right=false, bottom=false) {
+    constructor(left = false, top = false, right = false, bottom = false) {
         this.left = left;
         this.top = top;
         this.right = right;
@@ -67620,31 +67640,31 @@ class GUITexture {
     constructor(
         elements = [],
         styles = new GUIStylesOptions()) {
-            elements = [].concat(elements);
-            this.ctx = document.createElement('canvas').getContext('2d');
-            this.width = this.height = 0;
-            this.styles = styles;
-            this.applyStyles();
-            this.computeSize(elements);
-            this.applyStyles();
-            let x = this.styles.lineWidth;
-            let y = this.styles.lineWidth;
-            for (let e of elements) {
-                if (e instanceof GUIText) { 
-                    this.drawText(e.text, x, y);
-                    y += this.styles.fontsize;
-                }
-                else if (e instanceof GUICircularProgress) {
-                    this.drawCircularProgressBar(e.radius, e.progress, x, y);
-                    y += 2 * e.radius;
-                }
-                else if (e instanceof GUIBorders) {
-                    this.drawBorders(e.left, e.top, e.right, e.bottom, 0, 0);
-                }
-                // blank separator
-                y += this.styles.lineWidth;
+        elements = [].concat(elements);
+        this.ctx = document.createElement('canvas').getContext('2d');
+        this.width = this.height = 0;
+        this.styles = styles;
+        this.applyStyles();
+        this.computeSize(elements);
+        this.applyStyles();
+        let x = this.styles.lineWidth;
+        let y = this.styles.lineWidth;
+        for (let e of elements) {
+            if (e instanceof GUIText) {
+                this.drawText(e.text, x, y);
+                y += this.styles.fontsize;
             }
-            return this.ctx.canvas;
+            else if (e instanceof GUICircularProgress) {
+                this.drawCircularProgressBar(e.radius, e.progress, x, y);
+                y += 2 * e.radius;
+            }
+            else if (e instanceof GUIBorders) {
+                this.drawBorders(e.left, e.top, e.right, e.bottom, 0, 0);
+            }
+            // blank separator
+            y += this.styles.lineWidth;
+        }
+        return this.ctx.canvas;
     }
 
     applyStyles() {
@@ -67657,7 +67677,7 @@ class GUITexture {
 
     computeSize(elements) {
         for (let e of elements) {
-            if (e instanceof GUIText) { 
+            if (e instanceof GUIText) {
                 const width = Math.ceil(this.ctx.measureText(e.text).width);
                 this.width = Math.max(this.width, width);
                 this.height += this.styles.fontsize;
@@ -67666,9 +67686,9 @@ class GUITexture {
                 this.width = Math.max(this.width, 2 * e.radius);
                 this.height += 2 * e.radius;
             }
-            
+
             // space separator
-            this.height += this.styles.lineWidth; 
+            this.height += this.styles.lineWidth;
         }
         // add borders sizes
         this.width += this.styles.doubleBorderSize;
@@ -67704,11 +67724,11 @@ class GUITexture {
 
     drawCircularProgressBar(radius, progress, x, y) {
         progress = parseFloat(progress);
-        
+
         // center point
         const cx = x + radius;
         const cy = y + radius;
-        
+
         // angles
         const start = Math.PI / 2;
         const end = start + progress * Math.PI * 2;
@@ -67716,7 +67736,7 @@ class GUITexture {
 
         // adapt radius to external border of the ring
         radius -= this.styles.lineWidth;
-        
+
         this.ctx.save();
         this.ctx.moveTo(x, y);
         // background
@@ -67739,12 +67759,12 @@ class GUITexture {
 
     drawBorders(left, top, right, bottom) {
         const w = this.width;
-        const h = this.height; 
+        const h = this.height;
         const r = 4;
-        if(left)    this.drawLine(0, r, 0, h-r);
-        if(top)     this.drawLine(r, 0, w-r, 0);
-        if(right)   this.drawLine(w, r, w, h-r);
-        if(bottom)  this.drawLine(r, h, w-r, h);   
+        if (left) this.drawLine(0, r, 0, h - r);
+        if (top) this.drawLine(r, 0, w - r, 0);
+        if (right) this.drawLine(w, r, w, h - r);
+        if (bottom) this.drawLine(r, h, w - r, h);
     }
 }
 
@@ -68748,16 +68768,18 @@ class DropSystem extends System {
                 const mag = d.length();
                 d.normalize();
                 if (mag < this.radius * this.effect && mag > this.radius) {
-                    e.addComponent(ApplyImpulse, { 
-                        impulse: d.scale(0.05), 
-                        point: p1 });
+                    e.addComponent(ApplyImpulse, {
+                        impulse: d.scale(0.05),
+                        point: p1
+                    });
                 }
-                else if(mag < this.radius) {
-                    const {money} = e.getComponent(Inventory);
+                else if (mag < this.radius) {
+                    const { money } = e.getComponent(Inventory);
                     const inventory = player.getMutableComponent(Inventory);
                     inventory.money += money;
                     console.log(`player has now ${inventory.money}$`);
-                    e.addComponent(DeleteAfter);
+                    if (e.hasComponent(DeleteAfter) == false)
+                        e.addComponent(DeleteAfter);
                 }
             });
         });

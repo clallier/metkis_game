@@ -30,16 +30,18 @@ export default class DropSystem extends System {
                 const mag = d.length();
                 d.normalize();
                 if (mag < this.radius * this.effect && mag > this.radius) {
-                    e.addComponent(ApplyImpulse, { 
-                        impulse: d.scale(0.05), 
-                        point: p1 });
+                    e.addComponent(ApplyImpulse, {
+                        impulse: d.scale(0.05),
+                        point: p1
+                    });
                 }
-                else if(mag < this.radius) {
-                    const {money} = e.getComponent(Inventory);
+                else if (mag < this.radius) {
+                    const { money } = e.getComponent(Inventory);
                     const inventory = player.getMutableComponent(Inventory);
                     inventory.money += money;
                     console.log(`player has now ${inventory.money}$`)
-                    e.addComponent(DeleteAfter);
+                    if (e.hasComponent(DeleteAfter) == false)
+                        e.addComponent(DeleteAfter);
                 }
             })
         })

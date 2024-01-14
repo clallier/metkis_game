@@ -25,6 +25,24 @@ export default class MiniConsole {
         window.onerror = (m, s, ln, col, err) => this.errorCatcher(m, s, ln, col, err);
     }
 
+    stringify(obj) {
+        let cache = [];
+        let str = JSON.stringify(obj, function (key, value) {
+            if (typeof value === "object" && value !== null) {
+                if (cache.indexOf(value) !== -1) {
+                    // Circular reference found, discard key
+                    return;
+                }
+                // Store value in our collection
+                cache.push(value);
+            }
+            return value;
+        });
+        cache = null; // reset the cache
+        return str;
+    }
+
+
     consoleCatcher(level, ...items) {
         this.show()
         // Call native method first
@@ -32,7 +50,7 @@ export default class MiniConsole {
 
         // Use JSON to transform objects, all others display normally
         items.forEach((item, i) => {
-            items[i] = (item != null && typeof item === 'object' ? JSON.stringify(item, null, 2) : item);
+            items[i] = (item != null && typeof item === 'object' ? this.stringify(item, null, 2) : item);
         });
 
         this.output.innerHTML += `${level}${items.join(' ')} <br />`;

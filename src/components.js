@@ -130,7 +130,7 @@ export class SpawnEnemies extends Component {
 
     reset() {
         this.time = 0;
-        this.delay = 5;
+        this.delay = 0.5;
         this.emitting = true;
         this.total_time = 0;
         this.duration = 10;
